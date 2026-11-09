@@ -1,0 +1,1389 @@
+name: DomainToApplication
+instanceOf: Core:Model
+elements:
+  - name: app
+    instanceOf: Core:Package
+    elements:
+      - name: DomainToStack
+        instanceOf: Core:Class
+        abstract: true
+        icon: mui:Layers
+        extends:
+          - DomainToApplication:app.DomainPattern
+        properties:
+          - name: audit
+            instanceOf: Core:PrimitiveProperty
+            type: Core:Boolean
+          - name: auditFields
+            instanceOf: Core:FunctionProperty
+            output:
+              name: fields
+              instanceOf: Core:OutputFeature
+              multiple: true
+              type: Core:String
+            code: |
+              /**
+               * The names of the four audit fields a stack pattern adds to every record
+               * and to the full payload when its option `audit` is on (rule 18).
+               */
+              export default function (): string[] {
+                return ['createdAt', 'updatedAt', 'createdBy', 'updatedBy']
+              }
+      - name: DomainPattern
+        instanceOf: Core:Class
+        abstract: true
+        icon: mui:Hub
+        extends:
+          - Mapping:Mapper
+        properties:
+          - name: entitiesOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: model
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:Model
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Domain:Entity
+            code: |
+              /**
+               * Every entity of a domain model, those in packages included, in reading
+               * order.
+               */
+              export default function (model) {
+                const entityClass = e('Domain:Entity')
+                if (!entityClass) throw new Error('Domain:Entity not found: Domain is not loaded')
+                const entities: any[] = []
+                const collect = (container: any): void => {
+                  for (const element of container.elements ?? []) {
+                    if (element.instanceOf?._inherits(entityClass)) entities.push(element)
+                    else if (Array.isArray(element.elements)) collect(element)
+                  }
+                }
+                collect(model)
+                return entities
+              }
+          - name: lineageOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: entity
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Domain:Entity
+            code: |
+              /**
+               * The entity followed by its ancestors, up to the root of `extends`.
+               *
+               * A loop in the inheritance chain (A extends B extends A) stops the walk at
+               * the first entity seen twice, with a warning in the server log.
+               */
+              export default function (entity) {
+                const lineage: any[] = []
+                let current: any = entity
+                while (current && !lineage.includes(current)) {
+                  lineage.push(current)
+                  current = current.extends
+                }
+                if (current) log.warning(`${entity.name}: inheritance loop stopped at ${current.name}`)
+                return lineage
+              }
+          - name: fieldsOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: entity
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Domain:Field
+            code: |
+              /**
+               * The fields of an entity and of its ancestors: its own first, then those of
+               * its parent, and so on (rule 8).
+               */
+              export default function (entity) {
+                return this.lineageOf(entity).flatMap((ancestor: any) => ancestor.fields ?? [])
+              }
+          - name: relationsOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: entity
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Domain:EntityRelation
+            code: |
+              /**
+               * The relations of an entity and of its ancestors, in the order of
+               * `fieldsOf`.
+               */
+              export default function (entity) {
+                return this.lineageOf(entity).flatMap((ancestor: any) => ancestor.relations ?? [])
+              }
+          - name: hasReturn
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: relation
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:EntityRelation
+              - name: entity
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:Boolean
+            code: |
+              /**
+               * Whether a relation of `entity` has a return: the entity it targets holds a
+               * single-valued relation back to `entity` (rule 14). Client.commandes has a
+               * return because Commande.client targets Client.
+               */
+              export default function (relation, entity) {
+                const targetRelations: any[] = relation.type?.relations ?? []
+                return targetRelations.some((back: any) => !back.multiple && back.type === entity)
+              }
+          - name: referenceRelationsOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: entity
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Domain:EntityRelation
+            code: |
+              /**
+               * The relations that give the entity a reference field (rules 13 and 16):
+               * - every single-valued relation (Commande.client gives `clientId`);
+               * - every multi-valued relation that is neither a composition nor has a
+               *   return (`tagsIds`).
+               *
+               * A multi-valued relation with a return is carried by the other entity
+               * (rule 14); a composition by the child, which the stack pattern handles
+               * (rule 15).
+               */
+              export default function (entity) {
+                return this.relationsOf(entity).filter(
+                  (relation: any) => !relation.multiple || (!relation.composite && !this.hasReturn(relation, entity))
+                )
+              }
+          - name: referenceFieldName
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: relation
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:EntityRelation
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The name of the reference field of a relation: `<relation>Id` when it is
+               * single-valued, `<relation>Ids` when it is multi-valued.
+               */
+              export default function (relation) {
+                return relation.multiple ? `${relation.name}Ids` : `${relation.name}Id`
+              }
+          - name: canProduce
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: entity
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+              - name: name
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:String
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:Boolean
+            code: |
+              /**
+               * Whether a pattern may add a field `name` to what it produces for the
+               * entity. A field of the domain with the same name (inherited ones included)
+               * wins: the produced field is skipped and the server log says so.
+               */
+              export default function (entity, name) {
+                const taken = this.fieldsOf(entity).some((field: any) => field.name === name)
+                if (taken) log.warning(`${entity.name}: the domain already has a field ${name}, the produced one is skipped`)
+                return !taken
+              }
+          - name: resourcePathOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: entity
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The path of the resource of an entity: its name in lower case followed by
+               * an "s" (Commande gives `/commandes`, rule 20). The plural is naive: the
+               * user corrects it by hand.
+               */
+              export default function (entity) {
+                return `/${entity.name.toLowerCase()}s`
+              }
+          - name: pageNamesOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: entity
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Core:String
+            code: |
+              /**
+               * The names of the four pages of an entity, in the order every interface
+               * pattern follows: list, detail, new and edit (rule 24).
+               */
+              export default function (entity) {
+                return ['List', 'Detail', 'New', 'Edit'].map((page: string) => `${entity.name}${page}`)
+              }
+          - name: pageRoutesOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: entity
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Core:String
+            code: |
+              /**
+               * The routes of the four pages of an entity, in the order of `pageNamesOf`:
+               * they follow the path of its resource (rule 24).
+               */
+              export default function (entity) {
+                const path = this.resourcePathOf(entity)
+                return [path, `${path}/:id`, `${path}/new`, `${path}/:id/edit`]
+              }
+          - name: kindOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: field
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Field
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The kind of a domain field: the row it takes in the type tables of the
+               * analysis (rule 12).
+               * - `multiple` for a multi-valued field, whatever its type;
+               * - `enum` for an enumeration of the user's model;
+               * - else the name of its primitive type: `String`, `Number`, `Boolean` or
+               *   `Date`.
+               */
+              export default function (field) {
+                if (field.multiple) return 'multiple'
+                const type: any = field.type
+                if (type?.instanceOf?._inherits(e('Core:Enum'))) return 'enum'
+                return type?.name ?? 'String'
+              }
+          - name: referenceNameOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: entity
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The name under which another record refers to an entity: its name with a
+               * lower-case first letter (Commande gives `commande`). A composition child
+               * holds `<name>Id`, LigneDeCommande.commandeId (rule 15).
+               */
+              export default function (entity) {
+                return entity.name.charAt(0).toLowerCase() + entity.name.slice(1)
+              }
+          - name: labelOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: name
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:String
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The label of a field: its name split on capitals, first letter
+               * capitalised (`birthDate` gives "Birth date", rule 25).
+               */
+              export default function (name) {
+                const words = name.replace(/([A-Z])/g, ' $1').trim().toLowerCase()
+                return words.charAt(0).toUpperCase() + words.slice(1)
+              }
+          - name: applicationNameOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: model
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:Model
+            output:
+              name: name
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The name of the application a domain model gives (PLAT-1157): its own
+               * name without the suffix `Domain`. The domain `BoutiqueDomain` gives the
+               * application `Boutique`, and so does a domain named `Boutique`.
+               */
+              export default function (model) {
+                const name: string = model.name
+                return name.endsWith('Domain') && name.length > 'Domain'.length
+                  ? name.slice(0, -'Domain'.length)
+                  : name
+              }
+      - name: StackApplication
+        instanceOf: Core:Class
+        icon: mui:Apps
+        extends:
+          - DomainToApplication:app.DomainToStack
+        properties:
+          - name: map
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: source
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:Model
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Application:app.Application
+            code: |
+              import { Application } from 'Application/app'
+              import { Field as PayloadField } from 'Application/http'
+              import { Field as PageField } from 'Application/ui'
+              import { Column, ForeignKey } from 'Application/sql'
+              import { Field as MongoField, Reference } from 'Application/mongo'
+              import { domainToApi } from 'DomainToApplication/http'
+              import {
+                entityToMenuEntry,
+                entityToPages
+              } from 'DomainToApplication/ui'
+              import {
+                entityToPageComponents,
+                entityToRoutes,
+                frontendLayout
+              } from 'DomainToApplication/spa'
+
+              /**
+               * StackApplication — the Application of a stack, named after the domain
+               * model (rules 10 to 29). It knows no stack: each instance, in the mapper
+               * of its stack, gives it what is proper to that stack:
+               * - `database` and `record`: the class of `db` and the pattern of the
+               *   record of an entity — a SQL database and a table per entity, or a
+               *   Mongo database and a collection per entity;
+               * - `joinTables`: the pattern of the join tables of an entity, SQL only;
+               * - `frontend` and `service`: the class of `web` and the pattern of the
+               *   service of an entity — an Angular interface with its services, or a
+               *   React one with its API clients;
+               * - `frontendPackage`: the package where the head pattern of the stack
+               *   puts `web`, next to the Application (`react` or `angular`);
+               * - `api`: one resource per entity, the same for every stack.
+               *
+               * The Application designates its interface and does not contain it (Q2
+               * of PLAT-1157): `web` is the first of its `frontends`, and the head
+               * pattern places it in the package `frontendPackage`. `web` designates
+               * the Application by its path.
+               *
+               * It composes the fine patterns and sets what they leave to it:
+               * - the record each foreign key or reference targets;
+               * - the `<parent>Id` of a composition child, in its record, its
+               *   payloads and its pages (rule 15);
+               * - the audit fields when `audit` is on (rule 18);
+               * - the links of the interface: the resource and links of each page,
+               *   the page of each menu entry, the page, payload, row link and
+               *   endpoint of each component, the component of each route, the
+               *   resource and endpoints of each API service.
+               * - the resource of each reference field of a page, so a form can offer
+               *   the elements it points to in a list (PLAT-81).
+               *
+               * A reference from the elements of one entity to those of another is
+               * written as a path (`Boutique.db.Client`): two specs that point to
+               * each other overflow the stack of the engine (PLAT-350).
+               */
+              export default function (source) {
+                const stack: Stack = this as any
+                const sql = stack.database._path() === 'Application:sql.Database'
+                const entities = this.entitiesOf(source)
+                const name = this.applicationNameOf(source)
+                const at: Path = (...names) => [name, ...names].join('.')
+
+                // The fine patterns, per entity
+                const api: any = map(source, domainToApi)
+                const resources = new Map<any, any>(
+                  entities.map((entity: any, index: number) => [entity, api.resources[index]])
+                )
+                const records = new Map<any, any>(entities.map((entity: any) =>
+                  [entity, map(entity, stack.record)]
+                ))
+                const joinTables = new Map<any, any[]>(entities.map((entity: any) =>
+                  [entity, stack.joinTables ? mapAll(entity, stack.joinTables) : []]
+                ))
+                const pages = new Map<any, any[]>(
+                  entities.map((entity: any) => [entity, mapAll(entity, entityToPages)])
+                )
+                const ui: Interface = {
+                  layout: map(source, frontendLayout),
+                  menu: new Map(entities.map((entity: any) => [entity, map(entity, entityToMenuEntry)])),
+                  components: new Map(entities.map((entity: any) => [entity, mapAll(entity, entityToPageComponents)])),
+                  routes: new Map(entities.map((entity: any) => [entity, mapAll(entity, entityToRoutes)])),
+                  services: new Map(entities.map((entity: any) =>
+                    [entity, map(entity, stack.service)]
+                  ))
+                }
+
+                // What the fine patterns leave to the stack
+                const parts: Parts = { records, resources, pages }
+                linkRecords(this, entities, records, joinTables, at)
+                addParentKeys(this, entities, parts, sql, at)
+                if (this.audit) addAudit(this, entities, parts, sql)
+                const atWeb: Path = (...names) => [stack.frontendPackage, 'web', ...names].join('.')
+                linkInterface(entities, resources, pages, ui, atWeb)
+                linkReferenceFields(this, entities, parts)
+
+                const all = (byEntity: Map<any, any>) =>
+                  entities.flatMap((entity: any) => byEntity.get(entity))
+                return new Application({
+                  name,
+                  into: 'elements',
+                  title: name,
+                  stores: [{
+                    instanceOf: stack.database._path(),
+                    name: 'db',
+                    records: [...all(records), ...all(joinTables)]
+                  }],
+                  apis: [api],
+                  frontends: [{
+                    instanceOf: stack.frontend._path(),
+                    name: 'web',
+                    application: at(),
+                    pages: all(pages),
+                    menu: all(ui.menu),
+                    components: [ui.layout, ...all(ui.components)],
+                    routes: all(ui.routes),
+                    services: all(ui.services)
+                  }]
+                } as any)
+              }
+
+              /**
+               * What the instance of a stack gives it. Its two classes become the
+               * `instanceOf` of a spec: the classes of a stack are not imported here.
+               */
+              type Stack = {
+                database: any
+                record: any
+                joinTables?: any
+                frontend: any
+                frontendPackage: string
+                service: any
+              }
+
+              /**
+               * A path in the user's model: `at('db', 'Client')`. Typed `any`: the
+               * spec types only know elements and specs.
+               */
+              type Path = (...names: string[]) => any
+
+              /** What the stack adds to, per entity. */
+              type Parts = {
+                records: Map<any, any>
+                resources: Map<any, any>
+                pages: Map<any, any[]>
+              }
+
+              /** What the interface patterns produced, per entity. */
+              type Interface = {
+                layout: any
+                menu: Map<any, any>
+                components: Map<any, any[]>
+                routes: Map<any, any[]>
+                services: Map<any, any>
+              }
+
+              /**
+               * Each foreign key or reference targets the record of the entity its
+               * relation targets (rules 13 and 16). The two foreign keys of a join
+               * table target the entity and the entity its relation targets.
+               */
+              function linkRecords(
+                pattern: any,
+                entities: any[],
+                records: Map<any, any>,
+                joinTables: Map<any, any[]>,
+                at: Path
+              ) {
+                for (const entity of entities) {
+                  const relations = pattern.relationsOf(entity)
+                  for (const relation of relations) {
+                    const link = records.get(entity).references
+                      .find((r: any) => r.name === relation.name)
+                    if (link) link.target = at('db', relation.type.name)
+                  }
+                  for (const table of joinTables.get(entity) ?? []) {
+                    const relation = relations
+                      .find((r: any) => table.name === `${entity.name}_${r.name}`)
+                    table.references[0].target = at('db', entity.name)
+                    table.references[1].target = at('db', relation.type.name)
+                  }
+                }
+              }
+
+              /**
+               * The child of a composition holds the key of its parent (rule 15):
+               * LigneDeCommande gets `commandeId` in its record (with a foreign key
+               * or a reference `commande`), in both payloads and in its detail and
+               * form pages.
+               */
+              function addParentKeys(
+                pattern: any,
+                entities: any[],
+                parts: Parts,
+                sql: boolean,
+                at: Path
+              ) {
+                const text = e('Core:String')
+                for (const parent of entities) {
+                  const compositions = pattern.relationsOf(parent)
+                    .filter((relation: any) => relation.multiple && relation.composite)
+                  for (const relation of compositions) {
+                    const child = relation.type
+                    const name = pattern.referenceNameOf(parent)
+                    const key = `${name}Id`
+                    if (!pattern.canProduce(child, key)) continue
+
+                    const record = parts.records.get(child)
+                    const target = at('db', parent.name)
+                    if (sql) {
+                      const column = new Column({ name: key, type: text, mandatory: true, sqlType: 'CHAR(36)' })
+                      record.fields.push(column)
+                      record.references.push(new ForeignKey({ name, column, target }))
+                    } else {
+                      const field = new MongoField({ name: key, type: text, mandatory: true, bsonType: 'string' })
+                      record.fields.push(field)
+                      record.references.push(new Reference({ name, field, target }))
+                    }
+                    for (const payload of parts.resources.get(child).payloads) {
+                      payload.fields.push(new PayloadField({ name: key, type: text, mandatory: true }))
+                    }
+                    const [, ...detailAndForms] = parts.pages.get(child) ?? []
+                    for (const page of detailAndForms) {
+                      page.fields.push(new PageField({
+                        name: key, type: text, mandatory: true, label: pattern.labelOf(key), widget: 'select',
+                        resource: parts.resources.get(parent)
+                      }))
+                    }
+                  }
+                }
+              }
+
+              /**
+               * The four audit fields (rule 18), on every record, on the full payload
+               * and on the detail page. `createdAt` and `updatedAt` are dates,
+               * `createdBy` and `updatedBy` texts of 100 characters in SQL.
+               */
+              function addAudit(
+                pattern: any,
+                entities: any[],
+                parts: Parts,
+                sql: boolean
+              ) {
+                for (const entity of entities) {
+                  for (const name of pattern.auditFields()) {
+                    if (!pattern.canProduce(entity, name)) continue
+                    const date = name.endsWith('At')
+                    const type = e(date ? 'Core:Date' : 'Core:String')
+                    parts.records.get(entity).fields.push(sql
+                      ? new Column({ name, type, sqlType: date ? 'TIMESTAMP' : 'VARCHAR(100)' })
+                      : new MongoField({ name, type, bsonType: date ? 'date' : 'string' }))
+                    const [full] = parts.resources.get(entity).payloads
+                    full.fields.push(new PayloadField({ name, type }))
+                    const [, detail] = parts.pages.get(entity) ?? []
+                    detail?.fields.push(new PageField({
+                      name, type, label: pattern.labelOf(name), widget: date ? 'date' : 'text'
+                    }))
+                  }
+                }
+              }
+
+              /**
+               * The links of the interface (rules 24 to 29), per entity: the pages
+               * show the resource and link to one another, the menu entry opens the
+               * list, each component shows its page with its payload, row link or
+               * endpoint, each route opens its component, the service serves the
+               * five endpoints of the resource.
+               *
+               * The links between pages go forward as specs (list to detail and new,
+               * detail to edit) and back as paths (PLAT-350): `atWeb` writes the path
+               * of a page from the target of the Mapping, `react.web.ClientList`.
+               */
+              function linkInterface(
+                entities: any[],
+                resources: Map<any, any>,
+                pages: Map<any, any[]>,
+                ui: Interface,
+                atWeb: Path
+              ) {
+                for (const entity of entities) {
+                  const resource = resources.get(entity)
+                  const [full, input] = resource.payloads
+                  const endpoint = (name: string) =>
+                    resource.endpoints.find((x: any) => x.name === name)
+                  const entityPages = pages.get(entity) ?? []
+                  const [list, detail, create, edit] = entityPages
+                  const back = (page: any) => atWeb(page.name)
+
+                  for (const page of entityPages) page.resource = resource
+                  list.links = [detail, create]
+                  detail.links = [edit, back(list)]
+                  create.links = [back(list)]
+                  edit.links = [back(detail), back(list)]
+
+                  ui.menu.get(entity).page = list
+
+                  const components = ui.components.get(entity) ?? []
+                  components.forEach((component: any, index: number) => {
+                    component.page = entityPages[index]
+                  })
+                  const [table, sheet, newForm, editForm] =
+                    components.map((component: any) => component.children[0])
+                  Object.assign(table, { payload: full, rowLink: detail })
+                  Object.assign(sheet, { payload: full })
+                  Object.assign(newForm, { payload: input, endpoint: endpoint('create') })
+                  Object.assign(editForm, { payload: input, endpoint: endpoint('update') })
+
+                  ui.routes.get(entity)?.forEach((route: any, index: number) => {
+                    route.component = components[index]
+                  })
+                  Object.assign(ui.services.get(entity), {
+                    resource,
+                    endpoints: [...resource.endpoints]
+                  })
+                }
+              }
+
+              /**
+               * Each reference field of a page names the resource its values come
+               * from: `clientId` of Commande names the resource Client, so a form
+               * offers the clients in a list (PLAT-81). The entity the relation
+               * targets gives the resource; a target outside the model leaves the
+               * field as it is.
+               */
+              function linkReferenceFields(
+                pattern: any,
+                entities: any[],
+                parts: Parts
+              ) {
+                for (const entity of entities) {
+                  for (const relation of pattern.referenceRelationsOf(entity)) {
+                    const name = pattern.referenceFieldName(relation)
+                    const target = entities.find((x: any) => x === relation.type)
+                      ?? entities.find((x: any) => x.name === relation.type?.name)
+                    const resource = target && parts.resources.get(target)
+                    if (!resource) continue
+                    for (const page of parts.pages.get(entity) ?? []) {
+                      const field = page.fields.find((f: any) => f.name === name)
+                      if (field) field.resource = resource
+                    }
+                  }
+                }
+              }
+          - name: database
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Core:Class
+          - name: record
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Mapping:Mapper
+          - name: joinTables
+            instanceOf: Core:Relation
+            to: Mapping:Mapper
+          - name: frontend
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Core:Class
+          - name: service
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Mapping:Mapper
+          - name: frontendPackage
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Core:String
+  - name: http
+    instanceOf: Core:Package
+    elements:
+      - name: DomainToApi
+        instanceOf: Core:Class
+        icon: mui:Api
+        extends:
+          - DomainToApplication:app.DomainPattern
+        properties:
+          - name: map
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: source
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:Model
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Application:http.Api
+            code: |
+              import { Api } from 'Application/http'
+              import { entityToResource } from 'DomainToApplication/http'
+
+              /**
+               * DomainToApi — the REST API of a domain model (rule 19): `api` on `/api`,
+               * with one resource per entity of the model (EntityToResource).
+               */
+              export default function (source) {
+                return new Api({
+                  name: 'api',
+                  basePath: '/api',
+                  resources: this.entitiesOf(source).map((entity: any) => map(entity, entityToResource))
+                })
+              }
+      - name: EntityToResource
+        instanceOf: Core:Class
+        icon: mui:Dns
+        extends:
+          - DomainToApplication:app.DomainPattern
+        properties:
+          - name: map
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: source
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Application:http.Resource
+            code: |
+              import {
+                Endpoint,
+                Field,
+                Parameter,
+                Payload,
+                Resource
+              } from 'Application/http'
+              import { fieldToPayloadField } from 'DomainToApplication/http'
+
+              /**
+               * EntityToResource — the REST resource of an entity (rules 20 to 22).
+               *
+               * The resource is named after the entity, on `/<entity>s`, and carries:
+               * - the full payload `<Entity>`: `id`, every field of the entity and of its
+               *   ancestors, the reference field of each relation (`clientId`) and `state`
+               *   when the entity has a lifecycle;
+               * - the input payload `<Entity>Input`: the same without `id`;
+               * - the five CRUD endpoints: list, get, create, update and delete.
+               *
+               * Left to the stack pattern, which knows every entity: the `<parent>Id` of a
+               * composition child and the audit fields.
+               */
+              export default function (source) {
+                const text = e('Core:String')
+
+                // What the pattern adds to the domain fields, decided once so that a name
+                // clash with a domain field is reported once.
+                const withId = this.canProduce(source, 'id')
+                const references = this.referenceRelationsOf(source).filter((relation: any) =>
+                  this.canProduce(source, this.referenceFieldName(relation))
+                )
+                const withState = !!source.lifecycle && this.canProduce(source, 'state')
+
+                /** The fields both payloads carry, as new specs: a spec has a single parent. */
+                const sharedFields = () => [
+                  ...this.fieldsOf(source).map((field: any) => map(field, fieldToPayloadField)),
+                  ...references.map(
+                    (relation: any) =>
+                      new Field({
+                        name: this.referenceFieldName(relation),
+                        type: text,
+                        ...flagsOf({ mandatory: !relation.multiple && relation.mandatory, multiple: relation.multiple })
+                      })
+                  ),
+                  ...(withState ? [new Field({ name: 'state', type: text, mandatory: true })] : [])
+                ]
+
+                const full = new Payload({
+                  name: source.name,
+                  fields: [...(withId ? [new Field({ name: 'id', type: text, mandatory: true })] : []), ...sharedFields()]
+                })
+                const input = new Payload({ name: `${source.name}Input`, fields: sharedFields() })
+                return new Resource({
+                  name: source.name,
+                  path: this.resourcePathOf(source),
+                  payloads: [full, input],
+                  endpoints: crudEndpoints(full, input, text)
+                })
+              }
+
+              /**
+               * The five CRUD endpoints of a resource (rule 22). The three that address one
+               * record take its `id` as a path parameter.
+               */
+              function crudEndpoints(full: any, input: any, text: any) {
+                const id = () => [new Parameter({ name: 'id', type: text, mandatory: true, location: 'path' })]
+                return [
+                  new Endpoint({ name: 'list', method: 'GET', returnsList: true, response: full }),
+                  new Endpoint({ name: 'get', method: 'GET', path: '/{id}', parameters: id(), response: full }),
+                  new Endpoint({ name: 'create', method: 'POST', request: input, response: full }),
+                  new Endpoint({ name: 'update', method: 'PUT', path: '/{id}', parameters: id(), request: input, response: full }),
+                  new Endpoint({ name: 'delete', method: 'DELETE', path: '/{id}', parameters: id() })
+                ]
+              }
+
+              type Flags = { mandatory?: boolean; multiple?: boolean }
+
+              /**
+               * `mandatory` and `multiple` only when they are set: a false flag
+               * stays out of the spec.
+               */
+              function flagsOf(flags: Flags) {
+                return {
+                  ...(flags.mandatory ? { mandatory: true } : {}),
+                  ...(flags.multiple ? { multiple: true } : {})
+                }
+              }
+      - name: FieldToPayloadField
+        instanceOf: Core:Class
+        icon: mui:ShortText
+        extends:
+          - DomainToApplication:app.DomainPattern
+        properties:
+          - name: map
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: source
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Field
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Application:http.Field
+            code: |
+              import { Field } from 'Application/http'
+
+              /**
+               * FieldToPayloadField — the payload field of a domain field (rule 21): the
+               * same name, type and flags.
+               */
+              export default function (source) {
+                return new Field({
+                  name: source.name,
+                  type: source.type,
+                  ...(source.mandatory ? { mandatory: true } : {}),
+                  ...(source.multiple ? { multiple: true } : {})
+                })
+              }
+      - name: domainToApi
+        instanceOf: DomainToApplication:http.DomainToApi
+        source: Core:Model
+        target: Application:app.Application
+        outputRelation: Application:app.Application.apis
+      - name: entityToResource
+        instanceOf: DomainToApplication:http.EntityToResource
+        source: Domain:Entity
+        target: Application:http.Api
+        outputRelation: Application:http.Api.resources
+      - name: fieldToPayloadField
+        instanceOf: DomainToApplication:http.FieldToPayloadField
+        source: Domain:Field
+        target: Application:http.Payload
+        outputRelation: Application:http.Payload.fields
+  - name: ui
+    instanceOf: Core:Package
+    elements:
+      - name: EntityToPages
+        instanceOf: Core:Class
+        icon: mui:Article
+        extends:
+          - DomainToApplication:app.DomainPattern
+        properties:
+          - name: map
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: source
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Application:ui.Page
+            code: |
+              import { Page, Field } from 'Application/ui'
+
+              /** The input a page field is edited with (ui.Widget). */
+              type Widget = 'text' | 'number' | 'checkbox' | 'date' | 'select'
+                | 'textarea'
+
+              /**
+               * EntityToPages — the four pages of an entity (rules 24 to 26), in the order
+               * of `pageNamesOf`: `<Entity>List`, `<Entity>Detail`, `<Entity>New` and
+               * `<Entity>Edit`, on the routes of its resource.
+               *
+               * The list shows the single-valued fields of the entity and of its
+               * ancestors. The detail and the two forms show every field, the reference
+               * field of each relation and `state` when the entity has a lifecycle.
+               *
+               * Left to the stack pattern, which knows the resource, the path of the
+               * interface and every entity: the resource of each page, the links between
+               * the pages, the audit fields of the detail and the `<parent>Id` of a
+               * composition child.
+               */
+              export default function (source) {
+                const text = e('Core:String')
+                const fields = this.fieldsOf(source)
+                const references = this.referenceRelationsOf(source).filter((relation: any) =>
+                  this.canProduce(source, this.referenceFieldName(relation))
+                )
+                const withState = !!source.lifecycle && this.canProduce(source, 'state')
+
+                /** The page field of a domain field. */
+                const domainField = (field: any) =>
+                  new Field({
+                    name: field.name,
+                    type: field.type,
+                    ...flagsOf(field),
+                    label: this.labelOf(field.name),
+                    widget: widgetOf(field)
+                  })
+
+                /** The page field of a relation: its reference field, chosen in a list. */
+                const referenceField = (relation: any) => {
+                  const name = this.referenceFieldName(relation)
+                  return new Field({
+                    name,
+                    type: text,
+                    ...flagsOf({ mandatory: !relation.multiple && relation.mandatory, multiple: relation.multiple }),
+                    label: this.labelOf(name),
+                    widget: 'select'
+                  })
+                }
+
+                /** Every field of the detail and of the forms, as new specs: a spec has a single parent. */
+                const everyField = () => [
+                  ...fields.map(domainField),
+                  ...references.map(referenceField),
+                  ...(withState ? [new Field({ name: 'state', type: text, mandatory: true, label: this.labelOf('state'), widget: 'text' })] : [])
+                ]
+
+                const [listName, detailName, newName, editName] = this.pageNamesOf(source)
+                const [listRoute, detailRoute, newRoute, editRoute] = this.pageRoutesOf(source)
+                const page = (name: string, route: string, kind: 'list' | 'detail' | 'form', pageFields: any[]) =>
+                  new Page({ name, route, title: titleOf(source.name, name), kind, fields: pageFields })
+                return [
+                  page(listName, listRoute, 'list', fields.filter((field: any) => !field.multiple).map(domainField)),
+                  page(detailName, detailRoute, 'detail', everyField()),
+                  page(newName, newRoute, 'form', everyField()),
+                  page(editName, editRoute, 'form', everyField())
+                ]
+              }
+
+              /**
+               * The title of a page: the entity followed by the kind of page
+               * (`CommandeList` gives "Commande list", rule 25).
+               */
+              function titleOf(entityName: string, pageName: string): string {
+                return `${entityName} ${pageName.slice(entityName.length).toLowerCase()}`
+              }
+
+              /**
+               * The widget of a domain field (rule 26): a multi-valued field is a
+               * textarea, an enumeration a select, a primitive its own input.
+               */
+              function widgetOf(field: any): Widget {
+                if (field.multiple) return 'textarea'
+                if (field.type?.instanceOf?._inherits(e('Core:Enum'))) return 'select'
+                const byType: Record<string, Widget> = { 'Core:Number': 'number', 'Core:Boolean': 'checkbox', 'Core:Date': 'date' }
+                return byType[field.type?._path?.()] ?? 'text'
+              }
+
+              type Flags = { mandatory?: boolean; multiple?: boolean }
+
+              /**
+               * `mandatory` and `multiple` only when they are set: a false flag
+               * stays out of the spec.
+               */
+              function flagsOf(flags: Flags) {
+                return {
+                  ...(flags.mandatory ? { mandatory: true } : {}),
+                  ...(flags.multiple ? { multiple: true } : {})
+                }
+              }
+      - name: EntityToMenuEntry
+        instanceOf: Core:Class
+        icon: mui:Menu
+        extends:
+          - DomainToApplication:app.DomainPattern
+        properties:
+          - name: map
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: source
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Application:ui.MenuEntry
+            code: |
+              import { MenuEntry } from 'Application/ui'
+
+              /**
+               * EntityToMenuEntry — the menu entry of an entity (rule 27), named and
+               * labelled after it.
+               *
+               * Left to the stack pattern, which knows the pages: the page it opens (the
+               * list page).
+               */
+              export default function (source) {
+                return new MenuEntry({ name: source.name, label: source.name })
+              }
+      - name: entityToPages
+        instanceOf: DomainToApplication:ui.EntityToPages
+        source: Domain:Entity
+        target: Application:ui.Frontend
+        outputRelation: Application:ui.Frontend.pages
+      - name: entityToMenuEntry
+        instanceOf: DomainToApplication:ui.EntityToMenuEntry
+        source: Domain:Entity
+        target: Application:ui.Frontend
+        outputRelation: Application:ui.Frontend.menu
+  - name: spa
+    instanceOf: Core:Package
+    elements:
+      - name: FrontendLayout
+        instanceOf: Core:Class
+        icon: mui:ViewQuilt
+        extends:
+          - DomainToApplication:app.DomainPattern
+        properties:
+          - name: map
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: source
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:Model
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Application:spa.Layout
+            code: |
+              import { Layout, Navbar } from 'Application/spa'
+
+              /**
+               * FrontendLayout — the frame of an interface (rule 28): the layout `layout`
+               * with its navigation bar `navbar`, titled with the name of the application
+               * the domain model gives (`applicationNameOf`).
+               */
+              export default function (source) {
+                return new Layout({
+                  name: 'layout',
+                  children: [new Navbar({ name: 'navbar', title: this.applicationNameOf(source), color: '#37474f' })]
+                })
+              }
+      - name: EntityToPageComponents
+        instanceOf: Core:Class
+        icon: mui:Widgets
+        extends:
+          - DomainToApplication:app.DomainPattern
+        properties:
+          - name: map
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: source
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Application:spa.PageComponent
+            code: |
+              import {
+                Detail,
+                Form,
+                PageComponent,
+                Table
+              } from 'Application/spa'
+
+              /**
+               * EntityToPageComponents — the four page components of an entity (rule 28),
+               * in the order of `pageNamesOf`, each named after its page followed by "Page":
+               * - `<Entity>ListPage` holds the table `<Entity>Table`;
+               * - `<Entity>DetailPage` holds the detail `<Entity>Detail`;
+               * - `<Entity>NewPage` and `<Entity>EditPage` each hold the form `<Entity>Form`.
+               *
+               * Left to the stack pattern, which knows the pages and the resource: the page
+               * of each component, the payload of each child, the row link of the table and
+               * the endpoint of each form.
+               */
+              export default function (source) {
+                const [listName, detailName, newName, editName] = this.pageNamesOf(source)
+                const component = (pageName: string, child: any) => new PageComponent({ name: `${pageName}Page`, children: [child] })
+                return [
+                  component(listName, new Table({ name: `${source.name}Table` })),
+                  component(detailName, new Detail({ name: `${source.name}Detail` })),
+                  component(newName, new Form({ name: `${source.name}Form` })),
+                  component(editName, new Form({ name: `${source.name}Form` }))
+                ]
+              }
+      - name: EntityToRoutes
+        instanceOf: Core:Class
+        icon: mui:AltRoute
+        extends:
+          - DomainToApplication:app.DomainPattern
+        properties:
+          - name: map
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: source
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Domain:Entity
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Application:spa.Route
+            code: |
+              import { Route } from 'Application/spa'
+
+              /**
+               * EntityToRoutes — the four routes of an entity (rule 29), in the order of
+               * `pageNamesOf`, each named after its page followed by "Route", on the route
+               * of that page. None is lazy.
+               *
+               * Left to the stack pattern, which knows the page components: the component
+               * of each route.
+               */
+              export default function (source) {
+                const routes = this.pageRoutesOf(source)
+                return this.pageNamesOf(source).map(
+                  (pageName: string, index: number) => new Route({ name: `${pageName}Route`, path: routes[index], lazy: false })
+                )
+              }
+      - name: frontendLayout
+        instanceOf: DomainToApplication:spa.FrontendLayout
+        source: Core:Model
+        target: Application:spa.Frontend
+        outputRelation: Application:spa.Frontend.components
+      - name: entityToPageComponents
+        instanceOf: DomainToApplication:spa.EntityToPageComponents
+        source: Domain:Entity
+        target: Application:spa.Frontend
+        outputRelation: Application:spa.Frontend.components
+      - name: entityToRoutes
+        instanceOf: DomainToApplication:spa.EntityToRoutes
+        source: Domain:Entity
+        target: Application:spa.Frontend
+        outputRelation: Application:spa.Frontend.routes
+  - name: PatternsClassDiagram
+    instanceOf: Diagram:core.Diagram
+    type: Uml:ClassDiagram
+    subject: DomainToApplication
+    nodes:
+      - name: MappingMapper
+        instanceOf: Diagram:core.Node
+        element: Mapping:Mapper
+        x: -580
+        'y': -420
+        width: 200
+        height: 104
+      - name: AppDomainPattern
+        instanceOf: Diagram:core.Node
+        element: DomainToApplication:app.DomainPattern
+        x: -580
+        'y': -240
+        width: 200
+        height: 264
+      - name: AppDomainToStack
+        instanceOf: Diagram:core.Node
+        element: DomainToApplication:app.DomainToStack
+        x: -580
+        'y': 120
+        width: 200
+        height: 72
+      - name: AppStackApplication
+        instanceOf: Diagram:core.Node
+        element: DomainToApplication:app.StackApplication
+        x: -870
+        'y': 300
+        width: 200
+        height: 72
+      - name: HttpDomainToApi
+        instanceOf: Diagram:core.Node
+        element: DomainToApplication:http.DomainToApi
+        x: -100
+        'y': -240
+        width: 200
+        height: 56
+      - name: HttpEntityToResource
+        instanceOf: Diagram:core.Node
+        element: DomainToApplication:http.EntityToResource
+        x: -100
+        'y': -140
+        width: 200
+        height: 56
+      - name: HttpFieldToPayloadField
+        instanceOf: Diagram:core.Node
+        element: DomainToApplication:http.FieldToPayloadField
+        x: -100
+        'y': -40
+        width: 200
+        height: 56
+      - name: UiEntityToPages
+        instanceOf: Diagram:core.Node
+        element: DomainToApplication:ui.EntityToPages
+        x: 150
+        'y': -240
+        width: 200
+        height: 56
+      - name: UiEntityToMenuEntry
+        instanceOf: Diagram:core.Node
+        element: DomainToApplication:ui.EntityToMenuEntry
+        x: 150
+        'y': -140
+        width: 200
+        height: 56
+      - name: SpaFrontendLayout
+        instanceOf: Diagram:core.Node
+        element: DomainToApplication:spa.FrontendLayout
+        x: 400
+        'y': -240
+        width: 200
+        height: 56
+      - name: SpaEntityToPageComponents
+        instanceOf: Diagram:core.Node
+        element: DomainToApplication:spa.EntityToPageComponents
+        x: 400
+        'y': -140
+        width: 200
+        height: 56
+      - name: SpaEntityToRoutes
+        instanceOf: Diagram:core.Node
+        element: DomainToApplication:spa.EntityToRoutes
+        x: 400
+        'y': -40
+        width: 200
+        height: 56
+version: latest
+depends:
+  - Mapping
+  - Application
+  - Diagram
+  - Uml
+  - metaltura/domain/Domain@v1.0.0

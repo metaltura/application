@@ -1,0 +1,529 @@
+name: ApplicationToCode
+instanceOf: Core:Model
+elements:
+  - name: code
+    instanceOf: Core:Package
+    elements:
+      - name: CodePattern
+        instanceOf: Core:Class
+        abstract: true
+        icon: mui:Code
+        extends:
+          - Mapping:Mapper
+        properties:
+          - name: wordsOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: name
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:String
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Core:String
+            code: |
+              /**
+               * The words of a name: split on anything that is not a letter or a
+               * digit and on each change of case, accents removed, in lower case
+               * (`LigneDeCommande`, `ligne_de_commande` and `Ligne de commande` all
+               * give `ligne`, `de`, `commande`).
+               */
+              export default function (name) {
+                const plain = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                return plain
+                  .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+                  .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+                  .split(/[^A-Za-z0-9]+/)
+                  .filter((word: string) => word.length > 0)
+                  .map((word: string) => word.toLowerCase())
+              }
+          - name: pascalOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: name
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:String
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The PascalCase form of a name (`ligne de commande` gives
+               * `LigneDeCommande`), the form of a Java class or a TypeScript file.
+               * A name that starts with a digit is prefixed with `_`.
+               */
+              export default function (name) {
+                const pascal = this.wordsOf(name)
+                  .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join('')
+                return /^[0-9]/.test(pascal) ? `_${pascal}` : pascal
+              }
+          - name: camelOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: name
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:String
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The camelCase form of a name (`Client id` gives `clientId`), the form
+               * of an attribute, a variable or a JSON field.
+               */
+              export default function (name) {
+                const pascal = this.pascalOf(name)
+                return pascal.charAt(0).toLowerCase() + pascal.slice(1)
+              }
+          - name: kebabOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: name
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:String
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The kebab-case form of a name (`LigneDeCommande` gives
+               * `ligne-de-commande`), the form of a package name or a folder.
+               */
+              export default function (name) {
+                const kebab = this.wordsOf(name).join('-')
+                return /^[0-9]/.test(kebab) ? `_${kebab}` : kebab
+              }
+          - name: fileNameOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: name
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:String
+              - name: extension
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:String
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The name of a FileSystem file element: the dot of the extension is
+               * encoded as `__` (`Commande` and `java` give `Commande__java`, written
+               * `Commande.java` on disk).
+               */
+              export default function (name, extension) {
+                return `${name}__${extension}`
+              }
+          - name: pluralOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: name
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:String
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The naive English plural of a word: `category` gives `categories`,
+               * `box` gives `boxes`, `client` gives `clients`.
+               */
+              export default function (name) {
+                if (/[^aeiou]y$/.test(name)) return `${name.slice(0, -1)}ies`
+                if (/(s|x|z|ch|sh)$/.test(name)) return `${name}es`
+                return `${name}s`
+              }
+          - name: javaTypeOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: field
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Application:app.Field
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The Java type of a field of the Application model (rule 11): String,
+               * Double, Boolean, Instant, String for an Enum, and `List<T>` for a
+               * multiple field. The key of an IDENTITY entity is typed by the entity
+               * pattern, not here.
+               */
+              export default function (field) {
+                const type: any = field.type
+                const base = !type ? 'String'
+                  : Array.isArray(type.values) ? 'String'
+                  : type.name === 'Number' ? 'Double'
+                  : type.name === 'Boolean' ? 'Boolean'
+                  : type.name === 'Date' ? 'Instant'
+                  : 'String'
+                return field.multiple ? `List<${base}>` : base
+              }
+          - name: operationOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: endpoint
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Application:http.Endpoint
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The operation of an endpoint, read from its method and the shape of
+               * its relative path (rule 10): `list`, `get`, `create`, `update`,
+               * `delete`, or `unknown` for any other combination. Its name plays no
+               * part.
+               */
+              export default function (endpoint) {
+                const method = String(endpoint.method ?? '').toUpperCase()
+                const path = String(endpoint.path ?? '').replace(/\/+$/, '')
+                const byId = /^\/\{[^}]+\}$/.test(path)
+                if (method === 'GET' && path === '') return 'list'
+                if (method === 'GET' && byId) return 'get'
+                if (method === 'POST' && path === '') return 'create'
+                if ((method === 'PUT' || method === 'PATCH') && byId) return 'update'
+                if (method === 'DELETE' && byId) return 'delete'
+                return 'unknown'
+              }
+          - name: routeOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: resource
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Application:http.Resource
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The route of a resource: the base path of its API followed by its
+               * path (`/api` and `/commandes` give `/api/commandes`).
+               */
+              export default function (resource) {
+                const base = String(resource.api?.basePath ?? '').replace(/\/+$/, '')
+                const path = String(resource.path ?? '')
+                return `${base}/${path.replace(/^\/+/, '')}`.replace(/\/+/g, '/')
+              }
+          - name: payloadsOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: served
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Core:Element
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              multiple: true
+              type: Application:http.Payload
+            code: |
+              /**
+               * The payloads a controller or a router serves: the request and the
+               * response of each of its endpoints, once each, in the order of the
+               * model.
+               */
+              export default function (served: any) {
+                const payloads: any[] = []
+                for (const endpoint of served.endpoints ?? []) {
+                  for (const payload of [endpoint.request, endpoint.response]) {
+                    if (payload && !payloads.includes(payload)) payloads.push(payload)
+                  }
+                }
+                return payloads
+              }
+          - name: textOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: lines
+                instanceOf: Core:InputFeature
+                mandatory: true
+                multiple: true
+                type: Core:String
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The text of a file from its lines: joined by a line feed, with a
+               * final one. Two renderings of the same lines are identical byte for
+               * byte.
+               */
+              export default function (lines) {
+                return `${lines.join('\n')}\n`
+              }
+          - name: tsTypeOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: field
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Application:app.Field
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The TypeScript type of a field of the Application model (rule 11):
+               * string, number, boolean, an ISO 8601 string for a Date, the union
+               * of the values of an Enum, and `T[]` for a multiple field.
+               */
+              export default function (field) {
+                const type: any = field.type
+                const values: string[] | undefined =
+                  Array.isArray(type?.values) ? type.values : undefined
+                const base = values
+                  ? values.map((value: string) => `'${value}'`).join(' | ')
+                  : type?.name === 'Number' ? 'number'
+                  : type?.name === 'Boolean' ? 'boolean'
+                  : 'string'
+                if (!field.multiple) return base
+                return values && values.length > 1 ? `(${base})[]` : `${base}[]`
+              }
+          - name: mongooseTypeOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: field
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Application:app.Field
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The Mongoose schema type of a field of the Application model (rule
+               * 11): String, Number, Boolean, Date, String for an Enum (its values
+               * go in `enum`), and `[T]` for a multiple field.
+               */
+              export default function (field) {
+                const type: any = field.type
+                const base = !type || Array.isArray(type.values) ? 'String'
+                  : type.name === 'Number' ? 'Number'
+                  : type.name === 'Boolean' ? 'Boolean'
+                  : type.name === 'Date' ? 'Date'
+                  : 'String'
+                return field.multiple ? `[${base}]` : base
+              }
+          - name: expressPathOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: endpoint
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Application:http.Endpoint
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The Express path of an endpoint, relative to its router: `/{id}`
+               * gives `/:id`, an empty path gives `/`.
+               */
+              export default function (endpoint) {
+                const path = String(endpoint.path ?? '').replace(/\/+$/, '')
+                const express = path.replace(/\{([^}]+)\}/g, ':$1')
+                return express === '' ? '/' : express
+              }
+          - name: apiClientOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: frontend
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Application:spa.Frontend
+              - name: resource
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Application:http.Resource
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: false
+              type: Application:spa.ApiService
+            code: |
+              /**
+               * The API client of a frontend for a resource: its first service
+               * whose resource is that resource, or undefined when the frontend
+               * calls it through no service.
+               */
+              export default function (frontend: any, resource: any) {
+                const services: any[] = frontend?.services ?? []
+                return services.find((service: any) =>
+                  !!resource && service.resource === resource)
+              }
+          - name: labelFieldOf
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: frontend
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Application:spa.Frontend
+              - name: resource
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Application:http.Resource
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: Core:String
+            code: |
+              /**
+               * The field that names an element of a resource in a list of
+               * choices (rule 12): the first field of the list page of the
+               * frontend for that resource, in camelCase, or `id` when the
+               * frontend has no such page or the page has no field.
+               */
+              export default function (frontend: any, resource: any) {
+                const pages: any[] = frontend?.pages ?? []
+                const list = pages.find((page: any) =>
+                  page.kind === 'list' && !!resource && page.resource === resource)
+                const first = (list?.fields ?? [])[0]
+                return first ? this.camelOf(first.name) : 'id'
+              }
+      - name: ResourceToPayloadTypes
+        instanceOf: Core:Class
+        icon: mui:DataObject
+        extends:
+          - ApplicationToCode:code.CodePattern
+        properties:
+          - name: map
+            instanceOf: Core:FunctionProperty
+            mandatory: true
+            input:
+              - name: source
+                instanceOf: Core:InputFeature
+                mandatory: true
+                type: Application:http.Resource
+            output:
+              name: output
+              instanceOf: Core:OutputFeature
+              mandatory: true
+              type: FileSystem:TypeScriptFile
+            code: |
+              import { TypeScriptFile } from 'FileSystem'
+
+              /**
+               * ResourceToPayloadTypes — the types of the payloads of a resource
+               * (rule 27), in `src/payloads/`: an interface per payload, a property
+               * per field in camelCase, optional when the field is not mandatory.
+               */
+              export default function (source) {
+                const resource: any = source
+                const payloads: any[] = resource.payloads ?? []
+                const lines = payloads.flatMap((payload: any, i: number) => [
+                  ...(i > 0 ? [''] : []),
+                  ...interfaceOf(this, payload)
+                ])
+                return new TypeScriptFile({
+                  name: this.fileNameOf(this.pascalOf(resource.name), 'ts'),
+                  text: this.textOf(lines)
+                })
+              }
+
+              /** The interface of a payload. */
+              function interfaceOf(pattern: any, payload: any): string[] {
+                const fields: any[] = payload.fields ?? []
+                return [
+                  `export interface ${pattern.pascalOf(payload.name)} {`,
+                  ...fields.map((field: any) => {
+                    const optional = field.mandatory ? '' : '?'
+                    const name = pattern.camelOf(field.name)
+                    return `  ${name}${optional}: ${pattern.tsTypeOf(field)}`
+                  }),
+                  '}'
+                ]
+              }
+      - name: resourceToPayloadTypes
+        instanceOf: ApplicationToCode:code.ResourceToPayloadTypes
+        source: Application:http.Resource
+        target: FileSystem:Folder
+        outputRelation: FileSystem:EntryContainer.entries
+  - name: CodePatternsClassDiagram
+    instanceOf: Diagram:core.Diagram
+    type: Uml:ClassDiagram
+    subject: ApplicationToCode
+    nodes:
+      - name: MappingMapper
+        instanceOf: Diagram:core.Node
+        element: Mapping:Mapper
+        x: -100
+        'y': -620
+        width: 200
+        height: 104
+      - name: CodeCodePattern
+        instanceOf: Diagram:core.Node
+        element: ApplicationToCode:code.CodePattern
+        x: -100
+        'y': -440
+        width: 200
+        height: 312
+      - name: CodeResourceToPayloadTypes
+        instanceOf: Diagram:core.Node
+        element: ApplicationToCode:code.ResourceToPayloadTypes
+        x: -100
+        'y': -40
+        width: 200
+        height: 56
+version: latest
+depends:
+  - Mapping
+  - FileSystem
+  - Application
+  - Diagram
+  - Uml

@@ -1,0 +1,2198 @@
+name: Application
+instanceOf: Core:Model
+elements:
+  - name: app
+    instanceOf: Core:Package
+    elements:
+      - name: Application
+        instanceOf: Core:Class
+        icon: mui:Apps
+        color: '#37474f'
+        extends:
+          - Core:RootElement
+        properties:
+          - name: title
+            instanceOf: Core:PrimitiveProperty
+            type: Core:String
+          - name: stores
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:data.Store
+            composite: true
+            opposite: Application:data.Store.application
+          - name: apis
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:http.Api
+            composite: true
+            opposite: Application:http.Api.application
+          - name: frontends
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:ui.Frontend
+            opposite: Application:ui.Frontend.application
+      - name: Field
+        instanceOf: Core:Class
+        abstract: true
+        icon: mui:ShortText
+        extends:
+          - Core:Element
+        properties:
+          - name: type
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Core:Primitive
+          - name: mandatory
+            instanceOf: Core:PrimitiveProperty
+            type: Core:Boolean
+          - name: multiple
+            instanceOf: Core:PrimitiveProperty
+            type: Core:Boolean
+      - name: AppDiagram
+        instanceOf: Diagram:core.Diagram
+        type: Uml:ClassDiagram
+        subject: Application:app
+        nodes:
+          - name: DataStore
+            instanceOf: Diagram:core.Node
+            element: Application:data.Store
+            x: -390
+            'y': 254
+            width: 200
+            height: 72
+          - name: HttpApi
+            instanceOf: Diagram:core.Node
+            element: Application:http.Api
+            x: -100
+            'y': 254
+            width: 200
+            height: 88
+          - name: UiFrontend
+            instanceOf: Diagram:core.Node
+            element: Application:ui.Frontend
+            x: 190
+            'y': 254
+            width: 200
+            height: 88
+          - name: AppApplication
+            instanceOf: Diagram:core.Node
+            element: Application:app.Application
+            x: -245
+            'y': 40
+            width: 200
+            height: 104
+          - name: AppField
+            instanceOf: Diagram:core.Node
+            element: Application:app.Field
+            x: 45
+            'y': 40
+            width: 200
+            height: 88
+        links:
+          - name: AppApplicationStoresLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:app.Application.stores
+            labelX: 0.7
+            labelY: -10
+          - name: AppApplicationApisLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:app.Application.apis
+            labelX: 0.7
+            labelY: -10
+          - name: AppApplicationFrontendsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:app.Application.frontends
+            labelX: 0.7
+            labelY: -10
+          - name: applicationLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Store.application
+            hidden: true
+          - name: applicationLink2
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Api.application
+            hidden: true
+          - name: applicationLink3
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Frontend.application
+            hidden: true
+  - name: data
+    instanceOf: Core:Package
+    elements:
+      - name: Store
+        instanceOf: Core:Class
+        abstract: true
+        icon: mui:Storage
+        extends:
+          - Core:Element
+        properties:
+          - name: application
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:app.Application
+            opposite: Application:app.Application.stores
+          - name: records
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:data.Record
+            composite: true
+            opposite: Application:data.Record.store
+      - name: Record
+        instanceOf: Core:Class
+        abstract: true
+        icon: mui:TableChart
+        extends:
+          - Core:Element
+        properties:
+          - name: store
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:data.Store
+            opposite: Application:data.Store.records
+          - name: fields
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:data.StoredField
+            composite: true
+            opposite: Application:data.StoredField.record
+          - name: references
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:data.Reference
+            composite: true
+            opposite: Application:data.Reference.record
+          - name: indexes
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:data.Index
+            composite: true
+            opposite: Application:data.Index.record
+          - name: key
+            instanceOf: Core:Relation
+            to: Application:data.StoredField
+            filter: |
+              export default function run(field: any, owner: any): boolean {
+                return !!field && !!owner && field.record === owner
+              }
+      - name: StoredField
+        instanceOf: Core:Class
+        abstract: true
+        extends:
+          - Application:app.Field
+        properties:
+          - name: record
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:data.Record
+            opposite: Application:data.Record.fields
+      - name: Reference
+        instanceOf: Core:Class
+        abstract: true
+        icon: mui:Link
+        extends:
+          - Core:Element
+        properties:
+          - name: record
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:data.Record
+            opposite: Application:data.Record.references
+          - name: target
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:data.Record
+            filter: |
+              export default function run(target: any, owner: any): boolean {
+                return !!target && !!owner && !!owner.record && target.store === owner.record.store
+              }
+      - name: Index
+        instanceOf: Core:Class
+        icon: mui:Sort
+        extends:
+          - Core:Element
+        properties:
+          - name: record
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:data.Record
+            opposite: Application:data.Record.indexes
+          - name: fields
+            instanceOf: Core:Relation
+            mandatory: true
+            multiple: true
+            to: Application:data.StoredField
+            filter: |
+              export default function run(field: any, owner: any): boolean {
+                return !!field && !!owner && !!owner.record && field.record === owner.record
+              }
+          - name: unique
+            instanceOf: Core:PrimitiveProperty
+            type: Core:Boolean
+      - name: DataDiagram
+        instanceOf: Diagram:core.Diagram
+        type: Uml:ClassDiagram
+        subject: Application:data
+        nodes:
+          - name: AppField
+            instanceOf: Diagram:core.Node
+            element: Application:app.Field
+            x: -245
+            'y': 40
+            width: 200
+            height: 88
+          - name: AppApplication
+            instanceOf: Diagram:core.Node
+            element: Application:app.Application
+            x: 45
+            'y': 40
+            width: 200
+            height: 104
+          - name: DataStore
+            instanceOf: Diagram:core.Node
+            element: Application:data.Store
+            x: -100
+            'y': 254
+            width: 200
+            height: 72
+          - name: DataRecord
+            instanceOf: Diagram:core.Node
+            element: Application:data.Record
+            x: -100
+            'y': 436
+            width: 200
+            height: 120
+          - name: DataStoredField
+            instanceOf: Diagram:core.Node
+            element: Application:data.StoredField
+            x: -390
+            'y': 666
+            width: 200
+            height: 60
+          - name: DataReference
+            instanceOf: Diagram:core.Node
+            element: Application:data.Reference
+            x: -100
+            'y': 666
+            width: 200
+            height: 72
+          - name: DataIndex
+            instanceOf: Diagram:core.Node
+            element: Application:data.Index
+            x: 190
+            'y': 666
+            width: 200
+            height: 88
+        links:
+          - name: AppApplicationStoresLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:app.Application.stores
+            labelX: 0.7
+            labelY: -10
+          - name: DataStoreRecordsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Store.records
+            labelX: 0.7
+            labelY: -10
+          - name: DataRecordFieldsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.fields
+            labelX: 0.7
+            labelY: -10
+          - name: DataRecordReferencesLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.references
+            labelX: 0.7
+            labelY: -10
+          - name: DataRecordIndexesLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.indexes
+            labelX: 0.7
+            labelY: -10
+          - name: DataRecordKeyLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.key
+            points:
+              - -75
+              - 596
+            labelX: 0.7
+            labelY: -10
+          - name: DataReferenceTargetLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Reference.target
+            points:
+              - 70
+              - 599
+            labelX: 0.7
+            labelY: -10
+          - name: DataIndexFieldsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Index.fields
+            labelX: 0.7
+            labelY: -10
+          - name: applicationLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Store.application
+            hidden: true
+          - name: storeLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.store
+            hidden: true
+          - name: recordLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.StoredField.record
+            hidden: true
+          - name: recordLink2
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Reference.record
+            hidden: true
+          - name: recordLink3
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Index.record
+            hidden: true
+  - name: sql
+    instanceOf: Core:Package
+    elements:
+      - name: Database
+        instanceOf: Core:Class
+        icon: mui:Storage
+        color: '#0277bd'
+        extends:
+          - Application:data.Store
+        validations:
+          - name: tablesOnly
+            instanceOf: Core:Validation
+            execute: |
+              export default function(element: any) {
+                const table = element._workspace && element._workspace._get('Application:sql.Table')
+                const records = element.records || []
+                if (!table || records.every((r: any) => r.instanceOf._inherits(table))) return []
+                return [{ element, message: 'tablesOnly', propertyName: 'records' }]
+              }
+      - name: Table
+        instanceOf: Core:Class
+        icon: mui:TableChart
+        extends:
+          - Application:data.Record
+        validations:
+          - name: sqlChildren
+            instanceOf: Core:Validation
+            execute: |
+              export default function(element: any) {
+                const ws = element._workspace
+                if (!ws) return []
+                const column = ws._get('Application:sql.Column')
+                const foreignKey = ws._get('Application:sql.ForeignKey')
+                const errors: any[] = []
+                if (column && !(element.fields || []).every((f: any) => f.instanceOf._inherits(column))) {
+                  errors.push({ element, message: 'columnsOnly', propertyName: 'fields' })
+                }
+                if (foreignKey && !(element.references || []).every((r: any) => r.instanceOf._inherits(foreignKey))) {
+                  errors.push({ element, message: 'foreignKeysOnly', propertyName: 'references' })
+                }
+                return errors
+              }
+      - name: Column
+        instanceOf: Core:Class
+        icon: mui:ViewColumn
+        extends:
+          - Application:data.StoredField
+        properties:
+          - name: sqlType
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Core:String
+          - name: defaultValue
+            instanceOf: Core:PrimitiveProperty
+            type: Core:String
+      - name: ForeignKey
+        instanceOf: Core:Class
+        icon: mui:Link
+        extends:
+          - Application:data.Reference
+        properties:
+          - name: column
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:sql.Column
+            filter: |
+              export default function run(column: any, owner: any): boolean {
+                return !!column && !!owner && !!owner.record && column.record === owner.record
+              }
+      - name: tableBox
+        instanceOf: Diagram:notation.NodeShape
+        outline: rectangle
+        fill: '#0277bd'
+        strokeWidth: 1
+        width: 220
+        height: 60
+        headerHeight: 26
+        padding: 10
+        parts:
+          - name: icon
+            instanceOf: Diagram:notation.IconPart
+            anchor: titleLeft
+          - name: title
+            instanceOf: Diagram:notation.TextPart
+            position: top
+            band: true
+          - name: rows
+            instanceOf: Diagram:notation.ListPart
+      - name: foreignKey
+        instanceOf: Diagram:notation.LinkShape
+        router: segment
+        rounded: true
+        stroke: '#0277bd'
+        strokeWidth: 2
+        sourceEnd:
+          name: manyEnd
+          instanceOf: Diagram:notation.Marker
+          preset: zeroOrMany
+        targetEnd:
+          name: optionalEnd
+          instanceOf: Diagram:notation.Marker
+          preset: zeroOrOne
+        labels:
+          - name: label
+            instanceOf: Diagram:notation.LinkLabel
+            position: middle
+      - name: mandatoryForeignKey
+        instanceOf: Diagram:notation.LinkShape
+        router: segment
+        rounded: true
+        stroke: '#0277bd'
+        strokeWidth: 2
+        sourceEnd:
+          name: manyEnd
+          instanceOf: Diagram:notation.Marker
+          preset: zeroOrMany
+        targetEnd:
+          name: oneEnd
+          instanceOf: Diagram:notation.Marker
+          preset: one
+        labels:
+          - name: label
+            instanceOf: Diagram:notation.LinkLabel
+            position: middle
+      - name: databaseLayout
+        instanceOf: Diagram:notation.LayoutSettings
+        algorithm: layered
+        direction: up
+      - name: DatabaseDiagram
+        instanceOf: Diagram:types.DiagramType
+        icon: mui:TableChart
+        layoutSettings: Application:sql.databaseLayout
+        subject: Application:sql.Database
+        nodes:
+          - name: table
+            instanceOf: Diagram:types.NodeMapping
+            represents: Application:sql.Table
+            shape: Application:sql.tableBox
+            createIn: Application:data.Store.records
+            bindings:
+              - name: title
+                instanceOf: Diagram:types.Binding
+                slot: title
+                text: '{name}'
+              - name: icon
+                instanceOf: Diagram:types.Binding
+                slot: icon
+                icon: mui:TableChart
+              - name: rows
+                instanceOf: Diagram:types.Binding
+                slot: rows
+                relation: Application:data.Record.fields
+                rows:
+                  - name: column
+                    instanceOf: Diagram:types.RowBinding
+                    represents: Application:sql.Column
+                    text: '{name}: {sqlType}'
+        links:
+          - name: foreignKey
+            instanceOf: Diagram:types.ElementLink
+            shape: Application:sql.foreignKey
+            bindings:
+              - name: label
+                instanceOf: Diagram:types.Binding
+                slot: label
+                text: '{name}'
+            variants:
+              - name: mandatory
+                instanceOf: Diagram:types.Variant
+                when: column.mandatory
+                linkShape: Application:sql.mandatoryForeignKey
+            represents: Application:sql.ForeignKey
+            from: Application:data.Reference.record
+            to: Application:data.Reference.target
+      - name: SqlDiagram
+        instanceOf: Diagram:core.Diagram
+        type: Uml:ClassDiagram
+        subject: Application:sql
+        nodes:
+          - name: DataStore
+            instanceOf: Diagram:core.Node
+            element: Application:data.Store
+            x: -535
+            'y': 40
+            width: 200
+            height: 72
+          - name: DataRecord
+            instanceOf: Diagram:core.Node
+            element: Application:data.Record
+            x: -245
+            'y': 40
+            width: 200
+            height: 120
+          - name: DataStoredField
+            instanceOf: Diagram:core.Node
+            element: Application:data.StoredField
+            x: 45
+            'y': 40
+            width: 200
+            height: 60
+          - name: DataReference
+            instanceOf: Diagram:core.Node
+            element: Application:data.Reference
+            x: 335
+            'y': 40
+            width: 200
+            height: 72
+          - name: SqlDatabase
+            instanceOf: Diagram:core.Node
+            element: Application:sql.Database
+            x: -535
+            'y': 270
+            width: 200
+            height: 60
+          - name: SqlTable
+            instanceOf: Diagram:core.Node
+            element: Application:sql.Table
+            x: -245
+            'y': 270
+            width: 200
+            height: 60
+          - name: SqlColumn
+            instanceOf: Diagram:core.Node
+            element: Application:sql.Column
+            x: 45
+            'y': 270
+            width: 200
+            height: 72
+          - name: SqlForeignKey
+            instanceOf: Diagram:core.Node
+            element: Application:sql.ForeignKey
+            x: 335
+            'y': 270
+            width: 200
+            height: 60
+        links:
+          - name: SqlForeignKeyColumnLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:sql.ForeignKey.column
+            labelX: 0.7
+            labelY: -10
+          - name: recordsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Store.records
+            hidden: true
+          - name: storeLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.store
+            hidden: true
+          - name: fieldsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.fields
+            hidden: true
+          - name: referencesLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.references
+            hidden: true
+          - name: keyLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.key
+            hidden: true
+          - name: recordLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.StoredField.record
+            hidden: true
+          - name: recordLink2
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Reference.record
+            hidden: true
+          - name: targetLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Reference.target
+            hidden: true
+  - name: mongo
+    instanceOf: Core:Package
+    elements:
+      - name: Database
+        instanceOf: Core:Class
+        icon: mui:Storage
+        color: '#2e7d32'
+        extends:
+          - Application:data.Store
+        validations:
+          - name: collectionsOnly
+            instanceOf: Core:Validation
+            execute: |
+              export default function(element: any) {
+                const collection = element._workspace && element._workspace._get('Application:mongo.Collection')
+                const records = element.records || []
+                if (!collection || records.every((r: any) => r.instanceOf._inherits(collection))) return []
+                return [{ element, message: 'collectionsOnly', propertyName: 'records' }]
+              }
+      - name: Collection
+        instanceOf: Core:Class
+        icon: mui:Inventory2
+        extends:
+          - Application:data.Record
+        validations:
+          - name: mongoChildren
+            instanceOf: Core:Validation
+            execute: |
+              export default function(element: any) {
+                const ws = element._workspace
+                if (!ws) return []
+                const field = ws._get('Application:mongo.Field')
+                const reference = ws._get('Application:mongo.Reference')
+                const errors: any[] = []
+                if (field && !(element.fields || []).every((f: any) => f.instanceOf._inherits(field))) {
+                  errors.push({ element, message: 'fieldsOnly', propertyName: 'fields' })
+                }
+                if (reference && !(element.references || []).every((r: any) => r.instanceOf._inherits(reference))) {
+                  errors.push({ element, message: 'referencesOnly', propertyName: 'references' })
+                }
+                return errors
+              }
+      - name: Field
+        instanceOf: Core:Class
+        icon: mui:ShortText
+        extends:
+          - Application:data.StoredField
+        properties:
+          - name: bsonType
+            instanceOf: Core:PrimitiveProperty
+            type: Core:String
+      - name: Reference
+        instanceOf: Core:Class
+        icon: mui:Link
+        extends:
+          - Application:data.Reference
+        properties:
+          - name: field
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:mongo.Field
+            filter: |
+              export default function run(field: any, owner: any): boolean {
+                return !!field && !!owner && !!owner.record && field.record === owner.record
+              }
+          - name: multiple
+            instanceOf: Core:PrimitiveProperty
+            type: Core:Boolean
+      - name: MongoDiagram
+        instanceOf: Diagram:core.Diagram
+        type: Uml:ClassDiagram
+        subject: Application:mongo
+        nodes:
+          - name: DataStore
+            instanceOf: Diagram:core.Node
+            element: Application:data.Store
+            x: -530
+            'y': 40
+            width: 200
+            height: 72
+          - name: DataRecord
+            instanceOf: Diagram:core.Node
+            element: Application:data.Record
+            x: -310
+            'y': 40
+            width: 200
+            height: 120
+          - name: DataStoredField
+            instanceOf: Diagram:core.Node
+            element: Application:data.StoredField
+            x: -90
+            'y': 40
+            width: 200
+            height: 60
+          - name: DataReference
+            instanceOf: Diagram:core.Node
+            element: Application:data.Reference
+            x: 51
+            'y': 320
+            width: 200
+            height: 72
+          - name: MongoDatabase
+            instanceOf: Diagram:core.Node
+            element: Application:mongo.Database
+            x: -530
+            'y': 192
+            width: 200
+            height: 60
+          - name: MongoCollection
+            instanceOf: Diagram:core.Node
+            element: Application:mongo.Collection
+            x: -310
+            'y': 240
+            width: 200
+            height: 60
+          - name: MongoField
+            instanceOf: Diagram:core.Node
+            element: Application:mongo.Field
+            x: -90
+            'y': 180
+            width: 200
+            height: 60
+          - name: MongoReference
+            instanceOf: Diagram:core.Node
+            element: Application:mongo.Reference
+            x: -57
+            'y': 472
+            width: 200
+            height: 72
+        links:
+          - name: MongoReferenceFieldLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:mongo.Reference.field
+            points:
+              - 10
+              - 395
+              - 10
+              - 317
+            labelX: 0.922
+            labelY: 20
+          - name: recordsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Store.records
+            hidden: true
+          - name: storeLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.store
+            hidden: true
+          - name: fieldsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.fields
+            hidden: true
+          - name: referencesLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.references
+            hidden: true
+          - name: keyLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Record.key
+            hidden: true
+          - name: recordLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.StoredField.record
+            hidden: true
+          - name: recordLink2
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Reference.record
+            hidden: true
+          - name: targetLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:data.Reference.target
+            hidden: true
+          - name: DatabaseExtendsStore
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.extends
+            from: Application:mongo.Database
+            to: Application:data.Store
+            points:
+              - -430
+              - 165
+              - -430
+              - 139
+          - name: CollectionExtendsRecord
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.extends
+            from: Application:mongo.Collection
+            to: Application:data.Record
+            points:
+              - -210
+              - 213
+              - -210
+              - 187
+          - name: FieldExtendsStoredField
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.extends
+            from: Application:mongo.Field
+            to: Application:data.StoredField
+            points:
+              - 10
+              - 153
+              - 10
+              - 127
+          - name: ReferenceExtendsReference
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.extends
+            from: Application:mongo.Reference
+            to: Application:data.Reference
+            points:
+              - 77
+              - 442
+              - 151
+              - 442
+  - name: http
+    instanceOf: Core:Package
+    elements:
+      - name: Method
+        instanceOf: Core:Enum
+        values:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+      - name: ParameterLocation
+        instanceOf: Core:Enum
+        values:
+          - path
+          - query
+          - header
+      - name: Api
+        instanceOf: Core:Class
+        icon: mui:Api
+        color: '#6a1b9a'
+        extends:
+          - Core:Element
+        properties:
+          - name: application
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:app.Application
+            opposite: Application:app.Application.apis
+          - name: basePath
+            instanceOf: Core:PrimitiveProperty
+            type: Core:String
+          - name: resources
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:http.Resource
+            composite: true
+            opposite: Application:http.Resource.api
+      - name: Resource
+        instanceOf: Core:Class
+        icon: mui:Dns
+        extends:
+          - Core:Element
+        properties:
+          - name: api
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:http.Api
+            opposite: Application:http.Api.resources
+          - name: path
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Core:String
+          - name: payloads
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:http.Payload
+            composite: true
+            opposite: Application:http.Payload.resource
+          - name: endpoints
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:http.Endpoint
+            composite: true
+            opposite: Application:http.Endpoint.resource
+      - name: Payload
+        instanceOf: Core:Class
+        icon: mui:DataObject
+        extends:
+          - Core:Element
+        properties:
+          - name: resource
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:http.Resource
+            opposite: Application:http.Resource.payloads
+          - name: fields
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:http.Field
+            composite: true
+            opposite: Application:http.Field.payload
+      - name: Field
+        instanceOf: Core:Class
+        icon: mui:ShortText
+        extends:
+          - Application:app.Field
+        properties:
+          - name: payload
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:http.Payload
+            opposite: Application:http.Payload.fields
+      - name: Endpoint
+        instanceOf: Core:Class
+        icon: mui:SwapHoriz
+        extends:
+          - Core:Element
+        properties:
+          - name: resource
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:http.Resource
+            opposite: Application:http.Resource.endpoints
+          - name: method
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Application:http.Method
+          - name: path
+            instanceOf: Core:PrimitiveProperty
+            type: Core:String
+          - name: parameters
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:http.Parameter
+            composite: true
+            opposite: Application:http.Parameter.endpoint
+          - name: request
+            instanceOf: Core:Relation
+            to: Application:http.Payload
+            filter: |
+              export default function run(payload: any, owner: any): boolean {
+                return !!payload && !!owner && !!owner.resource && payload.resource === owner.resource
+              }
+          - name: response
+            instanceOf: Core:Relation
+            to: Application:http.Payload
+            filter: |
+              export default function run(payload: any, owner: any): boolean {
+                return !!payload && !!owner && !!owner.resource && payload.resource === owner.resource
+              }
+          - name: returnsList
+            instanceOf: Core:PrimitiveProperty
+            type: Core:Boolean
+      - name: Parameter
+        instanceOf: Core:Class
+        icon: mui:Input
+        extends:
+          - Application:app.Field
+        properties:
+          - name: endpoint
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:http.Endpoint
+            opposite: Application:http.Endpoint.parameters
+          - name: location
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Application:http.ParameterLocation
+      - name: HttpDiagram
+        instanceOf: Diagram:core.Diagram
+        type: Uml:ClassDiagram
+        subject: Application:http
+        nodes:
+          - name: AppField
+            instanceOf: Diagram:core.Node
+            element: Application:app.Field
+            x: -245
+            'y': 40
+            width: 200
+            height: 88
+          - name: AppApplication
+            instanceOf: Diagram:core.Node
+            element: Application:app.Application
+            x: 45
+            'y': 40
+            width: 200
+            height: 104
+          - name: HttpApi
+            instanceOf: Diagram:core.Node
+            element: Application:http.Api
+            x: -100
+            'y': 254
+            width: 200
+            height: 88
+          - name: HttpResource
+            instanceOf: Diagram:core.Node
+            element: Application:http.Resource
+            x: -100
+            'y': 452
+            width: 200
+            height: 104
+          - name: HttpPayload
+            instanceOf: Diagram:core.Node
+            element: Application:http.Payload
+            x: -245
+            'y': 666
+            width: 200
+            height: 72
+          - name: HttpField
+            instanceOf: Diagram:core.Node
+            element: Application:http.Field
+            x: -250
+            'y': 928
+            width: 200
+            height: 60
+          - name: HttpEndpoint
+            instanceOf: Diagram:core.Node
+            element: Application:http.Endpoint
+            x: 45
+            'y': 666
+            width: 200
+            height: 152
+          - name: HttpParameter
+            instanceOf: Diagram:core.Node
+            element: Application:http.Parameter
+            x: 40
+            'y': 928
+            width: 210
+            height: 72
+        links:
+          - name: AppApplicationApisLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:app.Application.apis
+            labelX: 0.7
+            labelY: -10
+          - name: HttpApiResourcesLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Api.resources
+            labelX: 0.7
+            labelY: -10
+          - name: HttpResourcePayloadsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Resource.payloads
+            labelX: 0.7
+            labelY: -10
+          - name: HttpResourceEndpointsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Resource.endpoints
+            labelX: 0.7
+            labelY: -10
+          - name: HttpPayloadFieldsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Payload.fields
+            labelX: 0.7
+            labelY: -10
+          - name: HttpEndpointParametersLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Endpoint.parameters
+            labelX: 0.7
+            labelY: -10
+          - name: HttpEndpointRequestLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Endpoint.request
+            labelX: 0.7
+            labelY: -10
+          - name: HttpEndpointResponseLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Endpoint.response
+            points:
+              - 70
+              - 722
+            labelX: 0.7
+            labelY: -10
+          - name: applicationLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Api.application
+            hidden: true
+          - name: apiLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Resource.api
+            hidden: true
+          - name: resourceLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Payload.resource
+            hidden: true
+          - name: payloadLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Field.payload
+            hidden: true
+          - name: resourceLink2
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Endpoint.resource
+            hidden: true
+          - name: endpointLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Parameter.endpoint
+            hidden: true
+  - name: ui
+    instanceOf: Core:Package
+    elements:
+      - name: PageKind
+        instanceOf: Core:Enum
+        values:
+          - list
+          - detail
+          - form
+      - name: Widget
+        instanceOf: Core:Enum
+        values:
+          - text
+          - number
+          - checkbox
+          - date
+          - select
+          - textarea
+      - name: Frontend
+        instanceOf: Core:Class
+        icon: mui:Web
+        color: '#c62828'
+        extends:
+          - Core:RootElement
+        properties:
+          - name: application
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:app.Application
+            opposite: Application:app.Application.frontends
+          - name: pages
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:ui.Page
+            composite: true
+            opposite: Application:ui.Page.frontend
+          - name: menu
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:ui.MenuEntry
+            composite: true
+            opposite: Application:ui.MenuEntry.frontend
+      - name: Page
+        instanceOf: Core:Class
+        icon: mui:Article
+        extends:
+          - Core:Element
+        properties:
+          - name: frontend
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:ui.Frontend
+            opposite: Application:ui.Frontend.pages
+          - name: route
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Core:String
+          - name: title
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Core:String
+          - name: kind
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Application:ui.PageKind
+          - name: resource
+            instanceOf: Core:Relation
+            to: Application:http.Resource
+            filter: |
+              export default function run(resource: any, owner: any): boolean {
+                return !!resource && !!owner && !!resource.api && !!owner.frontend && resource.api.application === owner.frontend.application
+              }
+          - name: fields
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:ui.Field
+            composite: true
+            opposite: Application:ui.Field.page
+          - name: links
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:ui.Page
+            filter: |
+              export default function run(page: any, owner: any): boolean {
+                return !!page && !!owner && page.frontend === owner.frontend
+              }
+      - name: Field
+        instanceOf: Core:Class
+        icon: mui:ShortText
+        extends:
+          - Application:app.Field
+        properties:
+          - name: page
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:ui.Page
+            opposite: Application:ui.Page.fields
+          - name: label
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Core:String
+          - name: widget
+            instanceOf: Core:PrimitiveProperty
+            type: Application:ui.Widget
+          - name: resource
+            instanceOf: Core:Relation
+            to: Application:http.Resource
+            filter: |
+              export default function run(resource: any, owner: any): boolean {
+                return !!resource && !!owner && !!resource.api && !!owner.page && !!owner.page.frontend && resource.api.application === owner.page.frontend.application
+              }
+      - name: MenuEntry
+        instanceOf: Core:Class
+        icon: mui:Menu
+        extends:
+          - Core:Element
+        properties:
+          - name: frontend
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:ui.Frontend
+            opposite: Application:ui.Frontend.menu
+          - name: label
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Core:String
+          - name: page
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:ui.Page
+            filter: |
+              export default function run(page: any, owner: any): boolean {
+                return !!page && !!owner && page.frontend === owner.frontend
+              }
+      - name: UiDiagram
+        instanceOf: Diagram:core.Diagram
+        type: Uml:ClassDiagram
+        subject: Application:ui
+        nodes:
+          - name: AppField
+            instanceOf: Diagram:core.Node
+            element: Application:app.Field
+            x: -390
+            'y': 40
+            width: 200
+            height: 88
+          - name: AppApplication
+            instanceOf: Diagram:core.Node
+            element: Application:app.Application
+            x: -100
+            'y': 40
+            width: 200
+            height: 104
+          - name: HttpResource
+            instanceOf: Diagram:core.Node
+            element: Application:http.Resource
+            x: 190
+            'y': 40
+            width: 200
+            height: 104
+          - name: UiFrontend
+            instanceOf: Diagram:core.Node
+            element: Application:ui.Frontend
+            x: -100
+            'y': 254
+            width: 200
+            height: 88
+          - name: UiPage
+            instanceOf: Diagram:core.Node
+            element: Application:ui.Page
+            x: -245
+            'y': 452
+            width: 200
+            height: 152
+          - name: UiField
+            instanceOf: Diagram:core.Node
+            element: Application:ui.Field
+            x: -100
+            'y': 714
+            width: 200
+            height: 88
+          - name: UiMenuEntry
+            instanceOf: Diagram:core.Node
+            element: Application:ui.MenuEntry
+            x: 45
+            'y': 452
+            width: 200
+            height: 88
+        links:
+          - name: AppApplicationFrontendsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:app.Application.frontends
+            labelX: 0.7
+            labelY: -10
+          - name: UiFrontendPagesLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Frontend.pages
+            labelX: 0.7
+            labelY: -10
+          - name: UiFrontendMenuLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Frontend.menu
+            labelX: 0.7
+            labelY: -10
+          - name: UiPageResourceLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Page.resource
+            labelX: 0.7
+            labelY: -10
+          - name: UiPageFieldsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Page.fields
+            labelX: 0.7
+            labelY: -10
+          - name: UiPageLinksLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Page.links
+            points:
+              - 15
+              - 467
+              - 15
+              - 589
+            labelX: 0.7
+            labelY: -10
+          - name: UiMenuEntryPageLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.MenuEntry.page
+            labelX: 0.7
+            labelY: -10
+          - name: applicationLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Frontend.application
+            hidden: true
+          - name: frontendLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Page.frontend
+            hidden: true
+          - name: pageLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Field.page
+            hidden: true
+          - name: frontendLink2
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.MenuEntry.frontend
+            hidden: true
+  - name: spa
+    instanceOf: Core:Package
+    elements:
+      - name: Frontend
+        instanceOf: Core:Class
+        abstract: true
+        icon: mui:Web
+        extends:
+          - Application:ui.Frontend
+        properties:
+          - name: components
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:spa.Component
+            composite: true
+            opposite: Application:spa.Component.frontend
+          - name: routes
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:spa.Route
+            composite: true
+            opposite: Application:spa.Route.frontend
+          - name: services
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:spa.ApiService
+            composite: true
+            opposite: Application:spa.ApiService.frontend
+        validations:
+          - name: topLevelComponents
+            instanceOf: Core:Validation
+            execute: |
+              export default function(element: any) {
+                const ws = element._workspace
+                if (!ws) return []
+                const pageComponent = ws._get('Application:spa.PageComponent')
+                const layout = ws._get('Application:spa.Layout')
+                if (!pageComponent || !layout) return []
+                const components = element.components || []
+                const layouts = components.filter((c: any) => c.instanceOf._inherits(layout))
+                const others = components.filter((c: any) => !c.instanceOf._inherits(layout) && !c.instanceOf._inherits(pageComponent))
+                if (layouts.length <= 1 && others.length === 0) return []
+                return [{ element, message: 'topLevelComponents', propertyName: 'components' }]
+              }
+      - name: Component
+        instanceOf: Core:Class
+        abstract: true
+        icon: mui:Widgets
+        extends:
+          - Core:Element
+        properties:
+          - name: frontend
+            instanceOf: Core:Relation
+            to: Application:spa.Frontend
+            opposite: Application:spa.Frontend.components
+          - name: parent
+            instanceOf: Core:Relation
+            to: Application:spa.Component
+            opposite: Application:spa.Component.children
+          - name: children
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:spa.Component
+            composite: true
+            opposite: Application:spa.Component.parent
+      - name: Layout
+        instanceOf: Core:Class
+        icon: mui:ViewQuilt
+        extends:
+          - Application:spa.Component
+      - name: Navbar
+        instanceOf: Core:Class
+        icon: mui:WebAsset
+        extends:
+          - Application:spa.Component
+        properties:
+          - name: title
+            instanceOf: Core:PrimitiveProperty
+            type: Core:String
+          - name: color
+            instanceOf: Core:PrimitiveProperty
+            type: Core:String
+      - name: PageComponent
+        instanceOf: Core:Class
+        icon: mui:Article
+        extends:
+          - Application:spa.Component
+        properties:
+          - name: page
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:ui.Page
+            filter: |
+              export default function run(page: any, owner: any): boolean {
+                const frontendOf = (c: any): any => {
+                  let x = c
+                  for (let i = 0; x && i < 20; i++) {
+                    if (x.frontend) return x.frontend
+                    x = x.parent
+                  }
+                  return undefined
+                }
+                const frontend = frontendOf(owner)
+                return !!page && !!frontend && page.frontend === frontend
+              }
+      - name: Table
+        instanceOf: Core:Class
+        icon: mui:TableRows
+        extends:
+          - Application:spa.Component
+        properties:
+          - name: payload
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:http.Payload
+            filter: |
+              export default function run(payload: any, owner: any): boolean {
+                const frontendOf = (c: any): any => {
+                  let x = c
+                  for (let i = 0; x && i < 20; i++) {
+                    if (x.frontend) return x.frontend
+                    x = x.parent
+                  }
+                  return undefined
+                }
+                if (!payload || !owner || !payload._workspace) return false
+                const payloadClass = payload._workspace._get('Application:http.Payload')
+                const frontend = frontendOf(owner)
+                return !!payloadClass && payload.instanceOf._inherits(payloadClass) && !!frontend && !!payload.resource && !!payload.resource.api && payload.resource.api.application === frontend.application
+              }
+          - name: rowLink
+            instanceOf: Core:Relation
+            to: Application:ui.Page
+            filter: |
+              export default function run(rowLink: any, owner: any): boolean {
+                const frontendOf = (c: any): any => {
+                  let x = c
+                  for (let i = 0; x && i < 20; i++) {
+                    if (x.frontend) return x.frontend
+                    x = x.parent
+                  }
+                  return undefined
+                }
+                const frontend = frontendOf(owner)
+                return !!rowLink && !!frontend && rowLink.frontend === frontend
+              }
+      - name: Detail
+        instanceOf: Core:Class
+        icon: mui:Description
+        extends:
+          - Application:spa.Component
+        properties:
+          - name: payload
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:http.Payload
+            filter: |
+              export default function run(payload: any, owner: any): boolean {
+                const frontendOf = (c: any): any => {
+                  let x = c
+                  for (let i = 0; x && i < 20; i++) {
+                    if (x.frontend) return x.frontend
+                    x = x.parent
+                  }
+                  return undefined
+                }
+                if (!payload || !owner || !payload._workspace) return false
+                const payloadClass = payload._workspace._get('Application:http.Payload')
+                const frontend = frontendOf(owner)
+                return !!payloadClass && payload.instanceOf._inherits(payloadClass) && !!frontend && !!payload.resource && !!payload.resource.api && payload.resource.api.application === frontend.application
+              }
+      - name: Form
+        instanceOf: Core:Class
+        icon: mui:EditNote
+        extends:
+          - Application:spa.Component
+        properties:
+          - name: payload
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:http.Payload
+            filter: |
+              export default function run(payload: any, owner: any): boolean {
+                const frontendOf = (c: any): any => {
+                  let x = c
+                  for (let i = 0; x && i < 20; i++) {
+                    if (x.frontend) return x.frontend
+                    x = x.parent
+                  }
+                  return undefined
+                }
+                if (!payload || !owner || !payload._workspace) return false
+                const payloadClass = payload._workspace._get('Application:http.Payload')
+                const frontend = frontendOf(owner)
+                return !!payloadClass && payload.instanceOf._inherits(payloadClass) && !!frontend && !!payload.resource && !!payload.resource.api && payload.resource.api.application === frontend.application
+              }
+          - name: endpoint
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:http.Endpoint
+            filter: |
+              export default function run(endpoint: any, owner: any): boolean {
+                return !!endpoint && !!owner && !!owner.payload && endpoint.resource === owner.payload.resource
+              }
+      - name: Route
+        instanceOf: Core:Class
+        icon: mui:AltRoute
+        extends:
+          - Core:Element
+        properties:
+          - name: frontend
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:spa.Frontend
+            opposite: Application:spa.Frontend.routes
+          - name: path
+            instanceOf: Core:PrimitiveProperty
+            mandatory: true
+            type: Core:String
+          - name: component
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:spa.PageComponent
+            filter: |
+              export default function run(component: any, owner: any): boolean {
+                if (!component || !owner || !owner.frontend || !component._workspace) return false
+                const pageComponent = component._workspace._get('Application:spa.PageComponent')
+                return !!pageComponent && component.instanceOf._inherits(pageComponent) && component.frontend === owner.frontend
+              }
+          - name: lazy
+            instanceOf: Core:PrimitiveProperty
+            type: Core:Boolean
+      - name: ApiService
+        instanceOf: Core:Class
+        abstract: true
+        icon: mui:CloudSync
+        extends:
+          - Core:Element
+        properties:
+          - name: frontend
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:spa.Frontend
+            opposite: Application:spa.Frontend.services
+          - name: resource
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:http.Resource
+            filter: |
+              export default function run(resource: any, owner: any): boolean {
+                return !!resource && !!owner && !!resource.api && !!owner.frontend && resource.api.application === owner.frontend.application
+              }
+          - name: endpoints
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:http.Endpoint
+            filter: |
+              export default function run(endpoint: any, owner: any): boolean {
+                return !!endpoint && !!owner && !!owner.resource && endpoint.resource === owner.resource
+              }
+      - name: SpaDiagram
+        instanceOf: Diagram:core.Diagram
+        type: Uml:ClassDiagram
+        subject: Application:spa
+        nodes:
+          - name: UiFrontend
+            instanceOf: Diagram:core.Node
+            element: Application:ui.Frontend
+            x: -535
+            'y': 40
+            width: 200
+            height: 88
+          - name: UiPage
+            instanceOf: Diagram:core.Node
+            element: Application:ui.Page
+            x: -245
+            'y': 40
+            width: 200
+            height: 152
+          - name: HttpPayload
+            instanceOf: Diagram:core.Node
+            element: Application:http.Payload
+            x: 45
+            'y': 40
+            width: 200
+            height: 72
+          - name: HttpEndpoint
+            instanceOf: Diagram:core.Node
+            element: Application:http.Endpoint
+            x: 335
+            'y': 40
+            width: 200
+            height: 152
+          - name: HttpResource
+            instanceOf: Diagram:core.Node
+            element: Application:http.Resource
+            x: 625
+            'y': 40
+            width: 200
+            height: 104
+          - name: SpaFrontend
+            instanceOf: Diagram:core.Node
+            element: Application:spa.Frontend
+            x: -535
+            'y': 300
+            width: 200
+            height: 88
+          - name: SpaRoute
+            instanceOf: Diagram:core.Node
+            element: Application:spa.Route
+            x: 45
+            'y': 300
+            width: 200
+            height: 104
+          - name: SpaApiService
+            instanceOf: Diagram:core.Node
+            element: Application:spa.ApiService
+            x: 625
+            'y': 300
+            width: 200
+            height: 88
+          - name: SpaComponent
+            instanceOf: Diagram:core.Node
+            element: Application:spa.Component
+            x: -535
+            'y': 520
+            width: 200
+            height: 88
+          - name: SpaLayout
+            instanceOf: Diagram:core.Node
+            element: Application:spa.Layout
+            x: -535
+            'y': 740
+            width: 200
+            height: 60
+          - name: SpaNavbar
+            instanceOf: Diagram:core.Node
+            element: Application:spa.Navbar
+            x: -245
+            'y': 740
+            width: 200
+            height: 72
+          - name: SpaPageComponent
+            instanceOf: Diagram:core.Node
+            element: Application:spa.PageComponent
+            x: 45
+            'y': 740
+            width: 200
+            height: 60
+          - name: SpaTable
+            instanceOf: Diagram:core.Node
+            element: Application:spa.Table
+            x: 335
+            'y': 740
+            width: 200
+            height: 72
+          - name: SpaDetail
+            instanceOf: Diagram:core.Node
+            element: Application:spa.Detail
+            x: 625
+            'y': 740
+            width: 200
+            height: 60
+          - name: SpaForm
+            instanceOf: Diagram:core.Node
+            element: Application:spa.Form
+            x: 915
+            'y': 740
+            width: 200
+            height: 72
+        links:
+          - name: SpaFrontendComponentsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Frontend.components
+            labelX: 0.7
+            labelY: -10
+          - name: SpaFrontendRoutesLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Frontend.routes
+            labelX: 0.7
+            labelY: -10
+          - name: SpaFrontendServicesLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Frontend.services
+            labelX: 0.7
+            labelY: -10
+          - name: SpaComponentChildrenLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Component.children
+            points:
+              - -275
+              - 535
+              - -275
+              - 593
+            labelX: 0.7
+            labelY: -10
+          - name: SpaPageComponentPageLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.PageComponent.page
+            labelX: 0.7
+            labelY: -10
+          - name: SpaTablePayloadLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Table.payload
+            labelX: 0.7
+            labelY: -10
+          - name: SpaTableRowLinkLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Table.rowLink
+            labelX: 0.7
+            labelY: -10
+          - name: SpaDetailPayloadLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Detail.payload
+            labelX: 0.7
+            labelY: -10
+          - name: SpaFormPayloadLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Form.payload
+            labelX: 0.7
+            labelY: -10
+          - name: SpaFormEndpointLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Form.endpoint
+            labelX: 0.7
+            labelY: -10
+          - name: SpaRouteComponentLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Route.component
+            labelX: 0.7
+            labelY: -10
+          - name: SpaApiServiceResourceLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.ApiService.resource
+            labelX: 0.7
+            labelY: -10
+          - name: SpaApiServiceEndpointsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.ApiService.endpoints
+            labelX: 0.7
+            labelY: -10
+          - name: pagesLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Frontend.pages
+            hidden: true
+          - name: frontendLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Page.frontend
+            hidden: true
+          - name: resourceLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Page.resource
+            hidden: true
+          - name: linksLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:ui.Page.links
+            hidden: true
+          - name: resourceLink2
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Payload.resource
+            hidden: true
+          - name: resourceLink3
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Endpoint.resource
+            hidden: true
+          - name: requestLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Endpoint.request
+            hidden: true
+          - name: responseLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Endpoint.response
+            hidden: true
+          - name: payloadsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Resource.payloads
+            hidden: true
+          - name: endpointsLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:http.Resource.endpoints
+            hidden: true
+          - name: frontendLink2
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Route.frontend
+            hidden: true
+          - name: frontendLink3
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.ApiService.frontend
+            hidden: true
+          - name: frontendLink4
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Component.frontend
+            hidden: true
+          - name: parentLink
+            instanceOf: Diagram:core.Link
+            mapping: Uml:ClassDiagram.relation
+            element: Application:spa.Component.parent
+            hidden: true
+  - name: bpmn
+    instanceOf: Core:Package
+    elements:
+      - name: Process
+        instanceOf: Core:Class
+        icon: mui:AccountTree
+        extends:
+          - Core:RootElement
+        properties:
+          - name: flowElements
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:bpmn.FlowElement
+            composite: true
+          - name: lanes
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:bpmn.Lane
+            composite: true
+      - name: FlowElement
+        instanceOf: Core:Class
+        abstract: true
+        extends:
+          - Core:Element
+      - name: FlowNode
+        instanceOf: Core:Class
+        abstract: true
+        extends:
+          - Application:bpmn.FlowElement
+      - name: Task
+        instanceOf: Core:Class
+        icon: mui:CropSquare
+        extends:
+          - Application:bpmn.FlowNode
+      - name: StartEvent
+        instanceOf: Core:Class
+        icon: mui:RadioButtonUnchecked
+        extends:
+          - Application:bpmn.FlowNode
+      - name: EndEvent
+        instanceOf: Core:Class
+        icon: mui:Lens
+        extends:
+          - Application:bpmn.FlowNode
+      - name: ExclusiveGateway
+        instanceOf: Core:Class
+        icon: mui:ChangeHistory
+        extends:
+          - Application:bpmn.FlowNode
+      - name: SequenceFlow
+        instanceOf: Core:Class
+        icon: mui:ArrowRightAlt
+        extends:
+          - Application:bpmn.FlowElement
+        properties:
+          - name: sourceRef
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:bpmn.FlowNode
+          - name: targetRef
+            instanceOf: Core:Relation
+            mandatory: true
+            to: Application:bpmn.FlowNode
+          - name: label
+            instanceOf: Core:PrimitiveProperty
+            type: Core:String
+        validations:
+          - name: flowFromEndEvent
+            instanceOf: Core:Validation
+            execute: |
+              export default function(element: any) {
+                // BPMN: A sequence flow cannot start from an end event
+                const end = element.sourceRef
+                if (!end || !end.instanceOf || end.instanceOf._path() !== 'Application:bpmn.EndEvent') return []
+                return [{ element, propertyName: 'sourceRef', message: 'A sequence flow cannot start from an end event' }]
+              }
+          - name: flowToStartEvent
+            instanceOf: Core:Validation
+            execute: |
+              export default function(element: any) {
+                // BPMN: A sequence flow cannot end on a start event
+                const end = element.targetRef
+                if (!end || !end.instanceOf || end.instanceOf._path() !== 'Application:bpmn.StartEvent') return []
+                return [{ element, propertyName: 'targetRef', message: 'A sequence flow cannot end on a start event' }]
+              }
+      - name: Lane
+        instanceOf: Core:Class
+        icon: mui:ViewStream
+        extends:
+          - Core:Element
+        properties:
+          - name: flowNodeRefs
+            instanceOf: Core:Relation
+            multiple: true
+            to: Application:bpmn.FlowNode
+      - name: task
+        instanceOf: Diagram:notation.NodeShape
+        outline: roundedRectangle
+        cornerRadius: 10
+        fill: '#1565c0'
+        strokeWidth: 1
+        width: 120
+        height: 80
+        padding: 8
+        parts:
+          - name: title
+            instanceOf: Diagram:notation.TextPart
+            position: center
+      - name: startEvent
+        instanceOf: Diagram:notation.NodeShape
+        outline: ellipse
+        fill: '#2e7d32'
+        strokeWidth: 1
+        width: 36
+        height: 36
+        fixedAspect: true
+        parts:
+          - name: title
+            instanceOf: Diagram:notation.TextPart
+            position: below
+      - name: endEvent
+        instanceOf: Diagram:notation.NodeShape
+        outline: ellipse
+        fill: '#c62828'
+        strokeWidth: 3
+        width: 36
+        height: 36
+        fixedAspect: true
+        parts:
+          - name: title
+            instanceOf: Diagram:notation.TextPart
+            position: below
+      - name: gateway
+        instanceOf: Diagram:notation.NodeShape
+        outline: rhombus
+        fill: '#f9a825'
+        strokeWidth: 1
+        width: 50
+        height: 50
+        fixedAspect: true
+        parts:
+          - name: title
+            instanceOf: Diagram:notation.TextPart
+            position: below
+      - name: lane
+        instanceOf: Diagram:notation.NodeShape
+        outline: rectangle
+        fill: '#546e7a'
+        strokeWidth: 1
+        width: 600
+        height: 160
+        headerHeight: 30
+        padding: 10
+        parts:
+          - name: title
+            instanceOf: Diagram:notation.TextPart
+            position: left
+          - name: content
+            instanceOf: Diagram:notation.RegionPart
+      - name: sequenceFlow
+        instanceOf: Diagram:notation.LinkShape
+        router: segment
+        rounded: true
+        strokeWidth: 1
+        targetEnd:
+          name: flowEnd
+          instanceOf: Diagram:notation.Marker
+          preset: arrow
+          filled: true
+        labels:
+          - name: label
+            instanceOf: Diagram:notation.LinkLabel
+            position: middle
+            x: 0
+            'y': -10
+      - name: BpmnDiagram
+        instanceOf: Diagram:types.DiagramType
+        icon: mui:AccountTree
+        subject: Application:bpmn.Process
+        nodes:
+          - name: task
+            instanceOf: Diagram:types.NodeMapping
+            represents: Application:bpmn.Task
+            shape: Application:bpmn.task
+            createIn: Application:bpmn.Process.flowElements
+            bindings:
+              - name: title
+                instanceOf: Diagram:types.Binding
+                slot: title
+                text: '{name}'
+          - name: startEvent
+            instanceOf: Diagram:types.NodeMapping
+            represents: Application:bpmn.StartEvent
+            shape: Application:bpmn.startEvent
+            createIn: Application:bpmn.Process.flowElements
+            bindings:
+              - name: title
+                instanceOf: Diagram:types.Binding
+                slot: title
+                text: '{name}'
+          - name: endEvent
+            instanceOf: Diagram:types.NodeMapping
+            represents: Application:bpmn.EndEvent
+            shape: Application:bpmn.endEvent
+            createIn: Application:bpmn.Process.flowElements
+            bindings:
+              - name: title
+                instanceOf: Diagram:types.Binding
+                slot: title
+                text: '{name}'
+          - name: exclusiveGateway
+            instanceOf: Diagram:types.NodeMapping
+            represents: Application:bpmn.ExclusiveGateway
+            shape: Application:bpmn.gateway
+            createIn: Application:bpmn.Process.flowElements
+            bindings:
+              - name: title
+                instanceOf: Diagram:types.Binding
+                slot: title
+                text: '{name}'
+          - name: lane
+            instanceOf: Diagram:types.NodeMapping
+            represents: Application:bpmn.Lane
+            shape: Application:bpmn.lane
+            createIn: Application:bpmn.Process.lanes
+            bindings:
+              - name: title
+                instanceOf: Diagram:types.Binding
+                slot: title
+                text: '{name}'
+              - name: content
+                instanceOf: Diagram:types.Binding
+                slot: content
+                relation: Application:bpmn.Lane.flowNodeRefs
+        links:
+          - name: flow
+            instanceOf: Diagram:types.ElementLink
+            shape: Application:bpmn.sequenceFlow
+            bindings:
+              - name: label
+                instanceOf: Diagram:types.Binding
+                slot: label
+                text: '{label}'
+            represents: Application:bpmn.SequenceFlow
+            from: Application:bpmn.SequenceFlow.sourceRef
+            to: Application:bpmn.SequenceFlow.targetRef
+            createIn: Application:bpmn.Process.flowElements
+            ask:
+              - Application:bpmn.SequenceFlow.label
+version: latest
+depends:
+  - Diagram
+  - Uml
