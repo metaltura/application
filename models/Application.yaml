@@ -9,7 +9,7 @@ elements:
         icon: mui:Apps
         color: '#37474f'
         extends:
-          - Core:RootElement
+          - Application:packaging.ApplicationRootElement
         properties:
           - name: title
             instanceOf: Core:PrimitiveProperty
@@ -2192,6 +2192,25 @@ elements:
             createIn: Application:bpmn.Process.flowElements
             ask:
               - Application:bpmn.SequenceFlow.label
+  - name: packaging
+    instanceOf: Core:Package
+    elements:
+      - name: ApplicationElement
+        instanceOf: Core:Class
+        color: '#3dbe0e'
+        extends:
+          - Core:RootElement
+      - name: ApplicationPackage
+        instanceOf: Core:Class
+        extends:
+          - Application:packaging.ApplicationElement
+          - Core:Package
+      - name: ApplicationRootElement
+        instanceOf: Core:Class
+        abstract: true
+        extends:
+          - Application:packaging.ApplicationElement
+          - Core:RootElement
 version: latest
 depends:
   - Diagram
