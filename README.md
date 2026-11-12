@@ -43,7 +43,7 @@ Un patron est une classe qui étend `Mapping:Mapper` et porte son code dans sa f
 
 | Dépôt | Ce qu'il en emploie | Ligne `depends` |
 | --- | --- | --- |
-| `metaltura/domain` | `Domain`, que lit `DomainToApplication` | `metaltura/domain/Domain@v1.0.0` |
+| `metaltura/domain` | `Domain`, que lit `DomainToApplication` | `metaltura/domain/Domain@v2.0.0` |
 
 Ces modèles système de Metaltura s'écrivent par leur nom seul :
 
@@ -60,12 +60,12 @@ Un modèle de ce dépôt nomme un autre modèle du dépôt par son nom seul (`Ap
 
 ```yaml
 depends:
-  - metaltura/application/Application@v1.0.0
-  - metaltura/application/DomainToApplication@v1.0.0
-  - metaltura/application/ApplicationToCode@v1.0.0
+  - metaltura/application/Application@v2.0.0
+  - metaltura/application/DomainToApplication@v2.0.0
+  - metaltura/application/ApplicationToCode@v2.0.0
 ```
 
-Metaltura clone ce dépôt à l'étiquette `v1.0.0`, puis `metaltura/domain` dont il dépend. Toute la librairie est à `v1.0.0` : Metaltura refuse qu'un même dépôt soit demandé à deux versions.
+Metaltura clone ce dépôt à l'étiquette `v2.0.0`, puis `metaltura/domain` dont il dépend. Toute la librairie est à `v2.0.0` : Metaltura refuse qu'un même dépôt soit demandé à deux versions.
 
 ## D'où il vient
 
