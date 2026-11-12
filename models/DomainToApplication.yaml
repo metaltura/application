@@ -49,15 +49,15 @@ elements:
               instanceOf: Core:OutputFeature
               mandatory: true
               multiple: true
-              type: Domain:Entity
+              type: Domain:entities.Entity
             code: |
               /**
                * Every entity of a domain model, those in packages included, in reading
                * order.
                */
               export default function (model) {
-                const entityClass = e('Domain:Entity')
-                if (!entityClass) throw new Error('Domain:Entity not found: Domain is not loaded')
+                const entityClass = e('Domain:entities.Entity')
+                if (!entityClass) throw new Error('Domain:entities.Entity not found: Domain is not loaded')
                 const entities: any[] = []
                 const collect = (container: any): void => {
                   for (const element of container.elements ?? []) {
@@ -75,13 +75,13 @@ elements:
               - name: entity
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
               mandatory: true
               multiple: true
-              type: Domain:Entity
+              type: Domain:entities.Entity
             code: |
               /**
                * The entity followed by its ancestors, up to the root of `extends`.
@@ -106,13 +106,13 @@ elements:
               - name: entity
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
               mandatory: true
               multiple: true
-              type: Domain:Field
+              type: Domain:entities.Field
             code: |
               /**
                * The fields of an entity and of its ancestors: its own first, then those of
@@ -128,13 +128,13 @@ elements:
               - name: entity
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
               mandatory: true
               multiple: true
-              type: Domain:EntityRelation
+              type: Domain:entities.EntityRelation
             code: |
               /**
                * The relations of an entity and of its ancestors, in the order of
@@ -150,11 +150,11 @@ elements:
               - name: relation
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:EntityRelation
+                type: Domain:entities.EntityRelation
               - name: entity
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -177,13 +177,13 @@ elements:
               - name: entity
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
               mandatory: true
               multiple: true
-              type: Domain:EntityRelation
+              type: Domain:entities.EntityRelation
             code: |
               /**
                * The relations that give the entity a reference field (rules 13 and 16):
@@ -207,7 +207,7 @@ elements:
               - name: relation
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:EntityRelation
+                type: Domain:entities.EntityRelation
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -228,7 +228,7 @@ elements:
               - name: entity
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
               - name: name
                 instanceOf: Core:InputFeature
                 mandatory: true
@@ -256,7 +256,7 @@ elements:
               - name: entity
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -278,7 +278,7 @@ elements:
               - name: entity
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -300,7 +300,7 @@ elements:
               - name: entity
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -323,7 +323,7 @@ elements:
               - name: field
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Field
+                type: Domain:entities.Field
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -351,7 +351,7 @@ elements:
               - name: entity
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -845,7 +845,7 @@ elements:
               - name: source
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -952,7 +952,7 @@ elements:
               - name: source
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Field
+                type: Domain:entities.Field
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -980,12 +980,12 @@ elements:
         outputRelation: Application:app.Application.apis
       - name: entityToResource
         instanceOf: DomainToApplication:http.EntityToResource
-        source: Domain:Entity
+        source: Domain:entities.Entity
         target: Application:http.Api
         outputRelation: Application:http.Api.resources
       - name: fieldToPayloadField
         instanceOf: DomainToApplication:http.FieldToPayloadField
-        source: Domain:Field
+        source: Domain:entities.Field
         target: Application:http.Payload
         outputRelation: Application:http.Payload.fields
   - name: ui
@@ -1004,7 +1004,7 @@ elements:
               - name: source
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -1125,7 +1125,7 @@ elements:
               - name: source
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -1146,12 +1146,12 @@ elements:
               }
       - name: entityToPages
         instanceOf: DomainToApplication:ui.EntityToPages
-        source: Domain:Entity
+        source: Domain:entities.Entity
         target: Application:ui.Frontend
         outputRelation: Application:ui.Frontend.pages
       - name: entityToMenuEntry
         instanceOf: DomainToApplication:ui.EntityToMenuEntry
-        source: Domain:Entity
+        source: Domain:entities.Entity
         target: Application:ui.Frontend
         outputRelation: Application:ui.Frontend.menu
   - name: spa
@@ -1203,7 +1203,7 @@ elements:
               - name: source
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -1252,7 +1252,7 @@ elements:
               - name: source
                 instanceOf: Core:InputFeature
                 mandatory: true
-                type: Domain:Entity
+                type: Domain:entities.Entity
             output:
               name: output
               instanceOf: Core:OutputFeature
@@ -1283,12 +1283,12 @@ elements:
         outputRelation: Application:spa.Frontend.components
       - name: entityToPageComponents
         instanceOf: DomainToApplication:spa.EntityToPageComponents
-        source: Domain:Entity
+        source: Domain:entities.Entity
         target: Application:spa.Frontend
         outputRelation: Application:spa.Frontend.components
       - name: entityToRoutes
         instanceOf: DomainToApplication:spa.EntityToRoutes
-        source: Domain:Entity
+        source: Domain:entities.Entity
         target: Application:spa.Frontend
         outputRelation: Application:spa.Frontend.routes
   - name: PatternsClassDiagram
@@ -1386,4 +1386,4 @@ depends:
   - Application
   - Diagram
   - Uml
-  - metaltura/domain/Domain@v1.0.0
+  - metaltura/domain/Domain@main
